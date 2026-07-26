@@ -105,6 +105,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* PILLS */
 .pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
 .pill{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:4px 10px 4px 7px;cursor:pointer;transition:all 0.12s;font-size:11px}
+.platform-tab{color:var(--muted2)}
+.platform-tab.active{background:var(--green)!important;color:#06120a!important;border-color:var(--green)!important}
 .pill:hover{border-color:var(--b3);background:var(--s3)}
 .pill-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .pill-dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
@@ -438,7 +440,7 @@ body.compact .acc-name{font-size:11px}
       <div class="logo-icon"><svg viewBox="0 0 20 20"><path d="M2 2h16v10H11l-3 3v-3H2V2zm5 4h2v4H7V6zm5 0h2v4h-2V6z"/></svg></div>
       <div>
         <div class="logo-text">PointsTracker</div>
-        <div class="logo-sub">Twitch miner dashboard</div>
+        <div class="logo-sub">Points miner dashboard</div>
       </div>
     </div>
     <nav class="sidebar-nav">
@@ -532,6 +534,12 @@ body.compact .acc-name{font-size:11px}
           <div class="section-actions">
             <div class="btn btn-ghost" onclick="exportCSV()">↓ CSV</div>
           </div>
+        </div>
+        <div class="platform-tabs" id="platformTabs" style="display:flex;gap:8px;margin-bottom:14px">
+          <div class="platform-tab active" data-p="all" onclick="setPlatform('all')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card2,#1a1d24);border:1px solid var(--border,#2a2e37)">All</div>
+          <div class="platform-tab" data-p="twitch" onclick="setPlatform('twitch')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card2,#1a1d24);border:1px solid var(--border,#2a2e37)">🟣 Twitch</div>
+          <div class="platform-tab" data-p="kick" onclick="setPlatform('kick')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card2,#1a1d24);border:1px solid var(--border,#2a2e37)">🟢 Kick</div>
+          <div style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center" id="platformSubtotal"></div>
         </div>
         <div class="pills" id="streamerPills"></div>
         <div class="toolbar">
@@ -872,7 +880,7 @@ function checkAlerts(){
 
 function getStreamerData(){
   const totals={},online={};
-  Object.values(pointsData).forEach(info=>{
+  filteredEntries().forEach(([,info])=>{
     Object.entries(info.channels||{}).forEach(([ch,pts])=>{totals[ch]=(totals[ch]||0)+pts;});
     Object.entries(info.streamer_status||{}).forEach(([ch,on])=>{if(on)online[ch]=true;else if(online[ch]===undefined)online[ch]=false;});
   });
@@ -892,6 +900,26 @@ function renderPills(id,clickable){
     </div>`).join('');
 }
 
+// ===================== PLATFORM FILTER =====================
+let platformFilter='all';
+function setPlatform(p){
+  platformFilter=p;
+  document.querySelectorAll('.platform-tab').forEach(el=>el.classList.toggle('active', el.dataset.p===p));
+  renderAll();
+}
+function filteredEntries(){
+  return Object.entries(pointsData).filter(([,info])=>{
+    const plat=info.platform||'twitch';
+    return platformFilter==='all' || plat===platformFilter;
+  });
+}
+function updatePlatformSubtotal(){
+  const entries=filteredEntries();
+  const total=entries.reduce((s,[,info])=>s+Object.values(info.channels||{}).reduce((a,b)=>a+b,0),0);
+  const label=platformFilter==='all'?'All platforms':(platformFilter==='kick'?'Kick':'Twitch');
+  document.getElementById('platformSubtotal').textContent=`${label}: ${fmt(total)} pts · ${entries.length} account${entries.length!==1?'s':''}`;
+}
+
 // ===================== ACCOUNTS TABLE =====================
 function setSort(key){
   if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=-1;}
@@ -906,7 +934,8 @@ function renderAccounts(){
   const body=document.getElementById('accBody');
   const now=Date.now()/1000;
 
-  let entries=Object.entries(pointsData).filter(([acc])=>acc.toLowerCase().includes(search));
+  let entries=filteredEntries().filter(([acc])=>acc.toLowerCase().includes(search));
+  updatePlatformSubtotal();
 
   // pin sort
   entries.sort(([accA,infoA],[accB,infoB])=>{
@@ -974,7 +1003,7 @@ function renderAccounts(){
 
     return `<tr class="${rowClass}">
       <td class="cell">
-        <div class="acc-name" onclick="openNickModal('${account}')">${account}</div>
+        <div class="acc-name" onclick="openNickModal('${account}')">${account} <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;vertical-align:middle;${(info.platform||'twitch')==='kick'?'background:rgba(83,252,25,0.15);color:#53fc19':'background:rgba(145,71,255,0.15);color:#9147ff'}">${(info.platform||'twitch')==='kick'?'KICK':'TWITCH'}</span></div>
         ${nick?`<div class="acc-nick">${nick}</div>`:''}
         <div class="acc-meta">
           ${uptimeStr?`<span class="uptime-txt">${uptimeStr}</span>`:''}
