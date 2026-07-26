@@ -330,15 +330,26 @@ def get_github_repos():
         safe[acc] = {"repo": cfg.get("repo",""), "file": cfg.get("file","main.py"), "linked": bool(cfg.get("token"))}
     return jsonify(safe)
 
+def normalize_repo(raw):
+    """Accepts 'owner/repo' or a full GitHub URL and returns 'owner/repo'."""
+    s = raw.strip()
+    s = re.sub(r"^(https?://)?(www\.)?github\.com/", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\.git$", "", s, flags=re.IGNORECASE)
+    s = s.strip("/")
+    return s
+
 @app.route("/api/github/link", methods=["POST"])
 def link_github_repo():
     data = request.json
     account = data.get("account")
-    repo    = data.get("repo")     # "owner/reponame"
+    repo    = data.get("repo")     # "owner/reponame" (or a full URL, which we normalize)
     token   = data.get("token")    # GitHub personal access token
     file    = data.get("file", "main.py")
     if not all([account, repo, token]):
         return jsonify({"error": "missing fields"}), 400
+    repo = normalize_repo(repo)
+    if repo.count("/") != 1:
+        return jsonify({"error": "repo must be in 'owner/reponame' format"}), 400
     GITHUB_REPOS[account] = {"repo": repo, "token": token, "file": file}
     save_data()
     return jsonify({"ok": True})
