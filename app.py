@@ -36,7 +36,6 @@ STREAMER_LOG = {}
 UPTIME       = {}
 CRASH_COUNT  = {}
 SILENCE_LOG  = {}   # { account -> [{start, end, duration}] }
-GOALS        = {}   # { account -> { channel -> target } }
 NICKNAMES    = {}   # { account -> nickname }
 PINNED       = set()
 _prev_status = {}
@@ -52,7 +51,6 @@ def save_data():
             "uptime": UPTIME,
             "crash_count": CRASH_COUNT,
             "silence_log": SILENCE_LOG,
-            "goals": GOALS,
             "nicknames": NICKNAMES,
             "pinned": list(PINNED),
         }
@@ -69,7 +67,7 @@ def save_daily():
         print("daily save error:", e)
 
 def load_data():
-    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,GOALS,NICKNAMES,PINNED
+    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE) as f:
@@ -81,7 +79,6 @@ def load_data():
             UPTIME       = p.get("uptime", {})
             CRASH_COUNT  = p.get("crash_count", {})
             SILENCE_LOG  = p.get("silence_log", {})
-            GOALS        = p.get("goals", {})
             NICKNAMES    = p.get("nicknames", {})
             PINNED       = set(p.get("pinned", []))
             print(f"Loaded {len(POINTS_CACHE)} accounts")
@@ -246,29 +243,6 @@ def crash_count(): return jsonify(CRASH_COUNT)
 @app.route("/api/silence-log/<account>")
 def silence_log(account): return jsonify(SILENCE_LOG.get(account, []))
 
-# GOALS
-@app.route("/api/goals", methods=["GET"])
-def get_goals(): return jsonify(GOALS)
-
-@app.route("/api/goals", methods=["POST"])
-def set_goal():
-    data = request.json
-    account = data.get("account")
-    channel = data.get("channel")
-    target  = data.get("target")
-    if not all([account, channel, target]): return jsonify({"error":"missing fields"}),400
-    if account not in GOALS: GOALS[account] = {}
-    GOALS[account][channel] = int(target)
-    save_data()
-    return jsonify({"ok":True})
-
-@app.route("/api/goals/<account>/<channel>", methods=["DELETE"])
-def delete_goal(account, channel):
-    if account in GOALS and channel in GOALS[account]:
-        del GOALS[account][channel]
-        save_data()
-    return jsonify({"ok":True})
-
 # NICKNAMES
 @app.route("/api/nicknames", methods=["GET"])
 def get_nicknames(): return jsonify(NICKNAMES)
@@ -302,7 +276,7 @@ def toggle_pin():
 # DELETE ACCOUNT
 @app.route("/api/delete/<account>", methods=["DELETE"])
 def delete_account(account):
-    for store in [POINTS_CACHE, HISTORY, PEAK, UPTIME, CRASH_COUNT, SILENCE_LOG, GOALS, NICKNAMES]:
+    for store in [POINTS_CACHE, HISTORY, PEAK, UPTIME, CRASH_COUNT, SILENCE_LOG, NICKNAMES]:
         store.pop(account, None)
     PINNED.discard(account)
     _prev_status.pop(account, None)
@@ -614,7 +588,6 @@ def save_data():
         "uptime": UPTIME,
         "crash_count": CRASH_COUNT,
         "silence_log": SILENCE_LOG,
-        "goals": GOALS,
         "nicknames": NICKNAMES,
         "pinned": list(PINNED),
         "github_repos": {
@@ -635,7 +608,7 @@ def save_data():
 
 _orig_load = load_data
 def load_data():
-    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,GOALS,NICKNAMES,PINNED,GITHUB_REPOS
+    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,GITHUB_REPOS
     p = None
     source = None
 
@@ -666,7 +639,6 @@ def load_data():
             UPTIME       = p.get("uptime", {})
             CRASH_COUNT  = p.get("crash_count", {})
             SILENCE_LOG  = p.get("silence_log", {})
-            GOALS        = p.get("goals", {})
             NICKNAMES    = p.get("nicknames", {})
             PINNED       = set(p.get("pinned", []))
             GITHUB_REPOS = {
