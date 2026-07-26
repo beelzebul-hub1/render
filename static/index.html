@@ -329,6 +329,60 @@ body.compact .acc-name{font-size:11px}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* BOT CONTROL */
+.bc-grid{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start}
+.bc-sidebar{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);overflow:hidden}
+.bc-sidebar-hdr{padding:10px 12px;border-bottom:1px solid var(--b1);font-size:11px;font-weight:600;color:var(--muted2)}
+.bc-acc-list{max-height:600px;overflow-y:auto}
+.bc-acc-item{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;transition:all 0.12s;border-bottom:1px solid var(--b1);font-size:11px}
+.bc-acc-item:last-child{border-bottom:none}
+.bc-acc-item:hover{background:var(--s3)}
+.bc-acc-item.active{background:var(--pglow);color:var(--purple)}
+.bc-acc-item .bc-acc-n{font-family:var(--mono);font-weight:600;flex:1}
+.bc-acc-item .bc-linked{font-size:9px;padding:2px 5px;border-radius:3px;font-weight:700}
+.bc-linked.yes{background:var(--gdim);color:var(--green)}
+.bc-linked.no{background:var(--rdim);color:var(--red)}
+.bc-panel{display:flex;flex-direction:column;gap:12px}
+.bc-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);overflow:hidden}
+.bc-card-hdr{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px}
+.bc-card-title{font-size:12px;font-weight:700;flex:1}
+.bc-card-body{padding:16px}
+.bc-field{margin-bottom:12px}
+.bc-label{font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.bc-input{width:100%;padding:8px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--r);color:var(--text);font-size:12px;font-family:"Inter",sans-serif;outline:none;transition:border-color 0.15s}
+.bc-input:focus{border-color:var(--purple3)}
+.bc-input::placeholder{color:var(--muted)}
+.bc-input.mono{font-family:var(--mono)}
+.bc-textarea{width:100%;padding:10px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--r);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;resize:vertical;transition:border-color 0.15s;line-height:1.5}
+.bc-textarea:focus{border-color:var(--purple3)}
+.bc-code{width:100%;min-height:420px;padding:12px;background:#0a0a12;border:1px solid var(--b2);border-radius:var(--r);color:#c9d1d9;font-size:11px;font-family:var(--mono);outline:none;resize:vertical;transition:border-color 0.15s;line-height:1.6;tab-size:4}
+.bc-code:focus{border-color:var(--purple3)}
+.bc-streamer-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.bc-streamer-row{display:flex;align-items:center;gap:8px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--r);padding:7px 10px}
+.bc-streamer-name{font-family:var(--mono);font-size:12px;flex:1;color:var(--text2)}
+.bc-streamer-del{cursor:pointer;color:var(--muted);transition:color 0.12s;font-size:14px;line-height:1}
+.bc-streamer-del:hover{color:var(--red)}
+.bc-add-row{display:flex;gap:6px}
+.bc-status{padding:8px 12px;border-radius:var(--r);font-size:11px;font-weight:600;margin-top:8px;display:none}
+.bc-status.ok{background:var(--gdim);color:var(--green);border:1px solid rgba(16,185,129,0.3);display:block}
+.bc-status.err{background:var(--rdim);color:var(--red);border:1px solid rgba(239,68,68,0.3);display:block}
+.bc-status.loading{background:var(--s3);color:var(--muted2);border:1px solid var(--b2);display:block}
+.bc-tabs{display:flex;gap:0;border-bottom:1px solid var(--b1);margin-bottom:0}
+.bc-tab{padding:9px 14px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.12s}
+.bc-tab:hover{color:var(--text2)}
+.bc-tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.bc-tab-content{display:none;padding:16px}
+.bc-tab-content.active{display:block}
+.bc-mass-note{font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.5}
+.bc-results{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.bc-result-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:11px;background:var(--s3)}
+.bc-result-acc{font-family:var(--mono);font-weight:600;flex:1}
+.bc-result-ok{color:var(--green);font-weight:700}
+.bc-result-err{color:var(--red)}
+.bc-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--muted);font-size:12px;gap:8px}
+.bc-placeholder svg{width:32px;height:32px;opacity:0.2}
+
 </style>
 </head>
 <body>
@@ -415,6 +469,11 @@ body.compact .acc-name{font-size:11px}
       <div class="nav-item" onclick="nav('heatmap')" id="nav-heatmap">
         <svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm9 4a1 1 0 10-2 0v6a1 1 0 102 0V7zm-3 2a1 1 0 10-2 0v4a1 1 0 102 0V9zm-3 3a1 1 0 10-2 0v1a1 1 0 102 0v-1z"/></svg>
         Heatmap
+      </div>
+      <div class="nav-label" style="margin-top:8px">Control</div>
+      <div class="nav-item" onclick="nav('botcontrol')" id="nav-botcontrol">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        Bot Control
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -567,6 +626,46 @@ body.compact .acc-name{font-size:11px}
       <div class="view" id="view-activity">
         <div class="section-hdr"><div><div class="section-title">Activity Feed</div><div class="section-sub">Live streamer events</div></div></div>
         <div class="feed-list" id="feedList"></div>
+      </div>
+
+
+      <!-- BOT CONTROL -->
+      <div class="view" id="view-botcontrol">
+        <div class="section-hdr">
+          <div><div class="section-title">Bot Control</div><div class="section-sub">Manage bot code via GitHub</div></div>
+          <div class="section-actions">
+            <div class="btn btn-ghost" onclick="openMassUpdate()">⚡ Mass Update All</div>
+          </div>
+        </div>
+        <div class="bc-grid">
+          <!-- Account list -->
+          <div class="bc-sidebar">
+            <div class="bc-sidebar-hdr">Accounts</div>
+            <div class="bc-acc-list" id="bcAccList"></div>
+          </div>
+          <!-- Panel -->
+          <div class="bc-panel" id="bcPanel">
+            <div class="bc-placeholder">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+              Select an account to manage it
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MASS UPDATE MODAL -->
+      <div class="modal-overlay" id="massUpdateModal">
+        <div class="modal" style="max-width:640px;width:95%">
+          <div class="modal-title">⚡ Mass Update All Bots</div>
+          <div class="modal-sub">Paste the new <code>main.py</code> code below. This will push it to <strong>every linked GitHub repo</strong> and trigger a redeploy on Render.</div>
+          <textarea class="bc-code" id="massCode" style="min-height:300px" placeholder="Paste your main.py code here..."></textarea>
+          <input class="bc-input" id="massMessage" placeholder='Commit message (e.g. "Update streamers")' style="margin-top:8px"/>
+          <div id="massResults" class="bc-results"></div>
+          <div class="modal-actions" style="margin-top:12px">
+            <div class="btn btn-ghost" onclick="closeMassUpdate()">Cancel</div>
+            <div class="btn btn-purple" onclick="runMassUpdate()">Push to All Bots</div>
+          </div>
+        </div>
       </div>
 
       <!-- HEATMAP -->
@@ -1164,6 +1263,279 @@ function exportCSV(){
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download=`points_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
+}
+
+
+// ===================== BOT CONTROL =====================
+let bcSelectedAcc = null;
+let bcLinkedRepos = {};
+let bcStreamers = [];
+let bcTabActive = 'simple';
+
+async function loadBcRepos() {
+  try {
+    const r = await fetch('/api/github/repos');
+    bcLinkedRepos = await r.json();
+  } catch(e) {}
+}
+
+function renderBcAccList() {
+  const el = document.getElementById('bcAccList');
+  const accs = Object.keys(pointsData);
+  if (!accs.length) { el.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--muted)">No accounts yet</div>'; return; }
+  el.innerHTML = accs.map(acc => {
+    const linked = bcLinkedRepos[acc]?.linked;
+    return `<div class="bc-acc-item ${acc===bcSelectedAcc?'active':''}" onclick="bcSelectAcc('${acc}')">
+      <span class="bc-acc-n">${acc}</span>
+      <span class="bc-linked ${linked?'yes':'no'}">${linked?'linked':'unlinked'}</span>
+    </div>`;
+  }).join('');
+}
+
+async function bcSelectAcc(acc) {
+  bcSelectedAcc = acc;
+  renderBcAccList();
+  renderBcPanel();
+}
+
+function renderBcPanel() {
+  const acc = bcSelectedAcc;
+  if (!acc) return;
+  const linked = bcLinkedRepos[acc];
+  const panel = document.getElementById('bcPanel');
+
+  panel.innerHTML = `
+    <div class="bc-card">
+      <div class="bc-card-hdr">
+        <div class="bc-card-title">🔗 GitHub Link — ${acc}</div>
+        ${linked ? `<div class="btn btn-red" onclick="bcUnlink('${acc}')">Unlink</div>` : ''}
+      </div>
+      <div class="bc-card-body">
+        ${!linked ? `
+          <div class="bc-field"><div class="bc-label">GitHub Repo (owner/reponame)</div>
+            <input class="bc-input mono" id="bcRepo" placeholder="e.g. yourname/twitch-bot-acc1"/></div>
+          <div class="bc-field"><div class="bc-label">Personal Access Token</div>
+            <input class="bc-input mono" id="bcToken" type="password" placeholder="ghp_xxxxxxxxxxxx"/></div>
+          <div class="bc-field"><div class="bc-label">File path in repo</div>
+            <input class="bc-input mono" id="bcFile" placeholder="main.py" value="main.py"/></div>
+          <div class="btn btn-purple" onclick="bcLink('${acc}')">Link Repo</div>
+          <div class="bc-status" id="bcLinkStatus"></div>
+        ` : `
+          <div style="font-size:12px;color:var(--text2)">
+            📁 <span style="font-family:var(--mono);color:var(--purple)">${linked.repo}</span>
+            &nbsp;·&nbsp; file: <span style="font-family:var(--mono)">${linked.file}</span>
+          </div>
+        `}
+      </div>
+    </div>
+
+    ${linked ? `
+    <div class="bc-card">
+      <div class="bc-tabs">
+        <div class="bc-tab ${bcTabActive==='simple'?'active':''}" onclick="bcSwitchTab('simple','${acc}')">Simple Controls</div>
+        <div class="bc-tab ${bcTabActive==='code'?'active':''}" onclick="bcSwitchTab('code','${acc}')">Full Code Editor</div>
+      </div>
+
+      <!-- SIMPLE TAB -->
+      <div class="bc-tab-content ${bcTabActive==='simple'?'active':''}" id="bcTabSimple">
+        <div class="bc-field">
+          <div class="bc-label">Streamers to Watch</div>
+          <div class="bc-streamer-list" id="bcStreamerList"></div>
+          <div class="bc-add-row">
+            <input class="bc-input mono" id="bcNewStreamer" placeholder="Add streamer username…" onkeydown="if(event.key==='Enter')bcAddStreamer()"/>
+            <div class="btn btn-green" onclick="bcAddStreamer()">+ Add</div>
+          </div>
+        </div>
+        <div class="bc-field" style="margin-top:16px">
+          <div class="bc-label">Greet Streamer (who to say hi to when they go live)</div>
+          <input class="bc-input mono" id="bcGreetStreamer" placeholder="e.g. imshayph"/>
+        </div>
+        <div class="bc-field">
+          <div class="bc-label">Greet Message</div>
+          <input class="bc-input" id="bcGreetMsg" placeholder="e.g. hi chat"/>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <div class="btn btn-purple" onclick="bcSaveSimple('${acc}')">💾 Save & Push to GitHub</div>
+        </div>
+        <div class="bc-status" id="bcSimpleStatus"></div>
+      </div>
+
+      <!-- CODE TAB -->
+      <div class="bc-tab-content ${bcTabActive==='code'?'active':''}" id="bcTabCode">
+        <div class="bc-field">
+          <div class="bc-label">main.py — editing ${linked.repo}</div>
+          <textarea class="bc-code" id="bcCodeEditor" spellcheck="false"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="btn btn-ghost" onclick="bcLoadCode('${acc}')">↺ Reload from GitHub</div>
+          <input class="bc-input" id="bcCommitMsg" placeholder='Commit message…' style="flex:1"/>
+          <div class="btn btn-purple" onclick="bcPushCode('${acc}')">🚀 Push to GitHub</div>
+        </div>
+        <div class="bc-status" id="bcCodeStatus"></div>
+      </div>
+    </div>
+    ` : ''}
+  `;
+
+  if (linked && bcTabActive === 'simple') bcLoadSimple(acc);
+  if (linked && bcTabActive === 'code') bcLoadCode(acc);
+}
+
+function bcSwitchTab(tab, acc) {
+  bcTabActive = tab;
+  renderBcPanel();
+}
+
+async function bcLink(acc) {
+  const repo  = document.getElementById('bcRepo').value.trim();
+  const token = document.getElementById('bcToken').value.trim();
+  const file  = document.getElementById('bcFile').value.trim() || 'main.py';
+  const st    = document.getElementById('bcLinkStatus');
+  if (!repo || !token) { st.className='bc-status err'; st.textContent='Please fill in repo and token.'; return; }
+  st.className='bc-status loading'; st.textContent='Linking…';
+  try {
+    const r = await fetch('/api/github/link', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account:acc,repo,token,file})});
+    const d = await r.json();
+    if (d.ok) { await loadBcRepos(); renderBcAccList(); renderBcPanel(); }
+    else { st.className='bc-status err'; st.textContent=d.error||'Failed'; }
+  } catch(e) { st.className='bc-status err'; st.textContent='Network error'; }
+}
+
+async function bcUnlink(acc) {
+  if (!confirm(`Unlink GitHub repo from ${acc}?`)) return;
+  await fetch(`/api/github/unlink/${acc}`, {method:'DELETE'});
+  await loadBcRepos();
+  bcTabActive = 'simple';
+  renderBcAccList();
+  renderBcPanel();
+}
+
+async function bcLoadSimple(acc) {
+  const st = document.getElementById('bcSimpleStatus');
+  if (!st) return;
+  st.className='bc-status loading'; st.textContent='Loading code from GitHub…';
+  try {
+    const r = await fetch(`/api/github/code/${acc}`);
+    const d = await r.json();
+    if (d.error) { st.className='bc-status err'; st.textContent=d.error; return; }
+    const code = d.content;
+
+    // Parse streamers
+    const smatch = code.match(/twitch_miner\.mine\(\s*\[([\s\S]*?)\]/);
+    bcStreamers = [];
+    if (smatch) {
+      const streamerMatches = smatch[1].matchAll(/Streamer\("([^"]+)"\)/g);
+      for (const m of streamerMatches) bcStreamers.push(m[1]);
+    }
+    renderBcStreamerList();
+
+    // Parse greet settings
+    const gsMatch = code.match(/GREET_STREAMER\s*=\s*"([^"]*)"/);
+    const gmMatch = code.match(/GREET_MESSAGE\s*=\s*"([^"]*)"/);
+    if (gsMatch && document.getElementById('bcGreetStreamer')) document.getElementById('bcGreetStreamer').value = gsMatch[1];
+    if (gmMatch && document.getElementById('bcGreetMsg')) document.getElementById('bcGreetMsg').value = gmMatch[1];
+
+    st.className='bc-status ok'; st.textContent='Loaded current settings from GitHub ✓';
+    setTimeout(()=>{if(st)st.style.display='none';},3000);
+  } catch(e) { if(st){st.className='bc-status err'; st.textContent='Failed to load';} }
+}
+
+function renderBcStreamerList() {
+  const el = document.getElementById('bcStreamerList');
+  if (!el) return;
+  if (!bcStreamers.length) { el.innerHTML='<div style="font-size:11px;color:var(--muted)">No streamers added yet</div>'; return; }
+  el.innerHTML = bcStreamers.map((s,i) => `
+    <div class="bc-streamer-row">
+      <span class="bc-streamer-name">${s}</span>
+      <span class="bc-streamer-del" onclick="bcRemoveStreamer(${i})">×</span>
+    </div>`).join('');
+}
+
+function bcAddStreamer() {
+  const inp = document.getElementById('bcNewStreamer');
+  const val = inp.value.trim().toLowerCase();
+  if (!val || bcStreamers.includes(val)) return;
+  bcStreamers.push(val);
+  inp.value = '';
+  renderBcStreamerList();
+}
+
+function bcRemoveStreamer(i) {
+  bcStreamers.splice(i,1);
+  renderBcStreamerList();
+}
+
+async function bcSaveSimple(acc) {
+  const st = document.getElementById('bcSimpleStatus');
+  const greetStreamer = document.getElementById('bcGreetStreamer').value.trim();
+  const greetMsg      = document.getElementById('bcGreetMsg').value.trim();
+  if (!bcStreamers.length) { st.className='bc-status err'; st.textContent='Add at least one streamer'; return; }
+  st.className='bc-status loading'; st.textContent='Pushing to GitHub…';
+  try {
+    const body = {streamers: bcStreamers, message:'Update settings from dashboard'};
+    if (greetStreamer) body.greet_streamer = greetStreamer;
+    if (greetMsg)      body.greet_message  = greetMsg;
+    const r = await fetch(`/api/github/patch/${acc}`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d = await r.json();
+    if (d.ok) { st.className='bc-status ok'; st.textContent='✓ Pushed to GitHub! Render will redeploy automatically.'; }
+    else { st.className='bc-status err'; st.textContent=d.error||'Push failed'; }
+  } catch(e) { st.className='bc-status err'; st.textContent='Network error'; }
+}
+
+async function bcLoadCode(acc) {
+  const st = document.getElementById('bcCodeStatus');
+  if (st) { st.className='bc-status loading'; st.textContent='Loading from GitHub…'; }
+  try {
+    const r = await fetch(`/api/github/code/${acc}`);
+    const d = await r.json();
+    const ed = document.getElementById('bcCodeEditor');
+    if (d.error) { if(st){st.className='bc-status err'; st.textContent=d.error;} return; }
+    if (ed) ed.value = d.content;
+    if (st) { st.className='bc-status ok'; st.textContent='Loaded ✓'; setTimeout(()=>{if(st)st.style.display='none';},2000); }
+  } catch(e) { if(st){st.className='bc-status err'; st.textContent='Failed to load';} }
+}
+
+async function bcPushCode(acc) {
+  const st  = document.getElementById('bcCodeStatus');
+  const code = document.getElementById('bcCodeEditor').value;
+  const msg  = document.getElementById('bcCommitMsg').value || 'Update from dashboard';
+  if (!code.trim()) { st.className='bc-status err'; st.textContent='Code is empty'; return; }
+  st.className='bc-status loading'; st.textContent='Pushing to GitHub…';
+  try {
+    const r = await fetch(`/api/github/code/${acc}`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:code,message:msg})});
+    const d = await r.json();
+    if (d.ok) { st.className='bc-status ok'; st.textContent='✓ Pushed! Render will auto-redeploy.'; }
+    else { st.className='bc-status err'; st.textContent=d.error||'Push failed'; }
+  } catch(e) { st.className='bc-status err'; st.textContent='Network error'; }
+}
+
+// MASS UPDATE
+function openMassUpdate() { document.getElementById('massUpdateModal').classList.add('open'); }
+function closeMassUpdate() { document.getElementById('massUpdateModal').classList.remove('open'); }
+
+async function runMassUpdate() {
+  const code = document.getElementById('massCode').value;
+  const msg  = document.getElementById('massMessage').value || 'Mass update from dashboard';
+  const res  = document.getElementById('massResults');
+  if (!code.trim()) { res.innerHTML='<div class="bc-status err" style="display:block">Paste some code first</div>'; return; }
+  res.innerHTML='<div class="bc-status loading" style="display:block">Pushing to all bots…</div>';
+  try {
+    const r = await fetch('/api/github/mass-update', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:code,message:msg})});
+    const d = await r.json();
+    const rows = Object.entries(d.results).map(([acc,status])=>`
+      <div class="bc-result-row">
+        <span class="bc-result-acc">${acc}</span>
+        <span class="${status==='ok'?'bc-result-ok':'bc-result-err'}">${status==='ok'?'✓ pushed':status}</span>
+      </div>`).join('');
+    res.innerHTML = rows || '<div style="color:var(--muted);font-size:11px">No linked repos found</div>';
+  } catch(e) { res.innerHTML='<div class="bc-status err" style="display:block">Network error</div>'; }
+}
+
+// Hook into nav to load repos
+const _origNav = nav;
+function nav(page) {
+  _origNav(page);
+  if (page === 'botcontrol') { loadBcRepos().then(()=>{ renderBcAccList(); }); }
 }
 
 // ===================== INIT =====================
