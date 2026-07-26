@@ -409,7 +409,8 @@ def gh_push_file(cfg, new_content, commit_message="Update bot config from dashbo
     token = cfg["token"]
     file  = cfg.get("file", "main.py")
     _, sha, err = gh_get_file(cfg)
-    if err and "not found" not in err.lower():
+    _no_file_yet = ("not found", "is empty")
+    if err and not any(kw in err.lower() for kw in _no_file_yet):
         # A real error (bad token, bad repo, etc.) - can't proceed.
         return False, err
     # sha stays None if the file doesn't exist yet; GitHub creates it in that case.
