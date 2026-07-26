@@ -743,6 +743,7 @@ function nav(page){
   if(page==='goals') renderGoals();
   if(page==='activity') renderActivity();
   if(page==='heatmap') renderHeatmap();
+  if(page==='botcontrol') { loadBcRepos().then(()=>{ renderBcAccList(); }); }
 }
 
 // ===================== COMPACT =====================
@@ -1529,13 +1530,6 @@ async function runMassUpdate() {
       </div>`).join('');
     res.innerHTML = rows || '<div style="color:var(--muted);font-size:11px">No linked repos found</div>';
   } catch(e) { res.innerHTML='<div class="bc-status err" style="display:block">Network error</div>'; }
-}
-
-// Hook into nav to load repos
-const _origNav = nav;
-function nav(page) {
-  _origNav(page);
-  if (page === 'botcontrol') { loadBcRepos().then(()=>{ renderBcAccList(); }); }
 }
 
 // ===================== INIT =====================
