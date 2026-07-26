@@ -1,27 +1,4 @@
-import os
-import time
-import json
-import base64
-import hashlib
-import threading
-from datetime import datetime, timezone
-from collections import deque
-from flask import Flask, jsonify, request, send_from_directory
 
-app = Flask(__name__, static_folder="static")
-
-MAX_HISTORY  = 500
-SAVE_INTERVAL= 60
-
-# Local file: survives a same-container crash/restart, but NOT a Render
-# redeploy (new container = wiped disk on the free tier). Real persistence
-# across redeploys comes from the GitHub state backup further down.
-DATA_FILE    = "data.json"
-DAILY_FILE   = "daily.json"
-
-# Dedicated private GitHub repo used to back up all dashboard state so it
-# survives restarts/redeploys without needing a paid Render disk. Set these
-# in the Render dashboard (see render.yaml).
 STATE_GITHUB_REPO  = os.environ.get("STATE_GITHUB_REPO")   # "owner/reponame"
 STATE_GITHUB_TOKEN = os.environ.get("STATE_GITHUB_TOKEN")  # PAT with repo scope
 STATE_GITHUB_FILE  = os.environ.get("STATE_GITHUB_FILE", "dashboard_state.json")
@@ -150,6 +127,7 @@ def update():
     channels        = data.get("channels", {})
     updated         = data.get("updated")
     streamer_status = data.get("streamer_status", {})
+    platform        = data.get("platform", "twitch")  # "twitch" or "kick"
     if not account: return jsonify({"error":"missing account"}),400
 
     now_ts = int(time.time())
@@ -169,7 +147,8 @@ def update():
 
     POINTS_CACHE[account] = {
         "channels": channels, "streamer_status": streamer_status,
-        "updated": updated, "first_seen": UPTIME[account]
+        "updated": updated, "first_seen": UPTIME[account],
+        "platform": platform
     }
 
     if account not in HISTORY: HISTORY[account] = []
