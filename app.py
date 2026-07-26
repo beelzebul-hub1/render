@@ -56,6 +56,8 @@ CRASH_COUNT  = {}
 SILENCE_LOG  = {}   # { account -> [{start, end, duration}] }
 NICKNAMES    = {}   # { account -> nickname }
 PINNED       = set()
+EVENT_LOG    = []   # [{ts, account, streamer, delta, total, label}] - most recent last
+MAX_EVENT_LOG = 500
 _prev_status = {}
 _silence_start = {}  # account -> ts when it went silent
 
@@ -71,6 +73,7 @@ def save_data():
             "silence_log": SILENCE_LOG,
             "nicknames": NICKNAMES,
             "pinned": list(PINNED),
+            "event_log": EVENT_LOG[-MAX_EVENT_LOG:],
         }
         with open(DATA_FILE, "w") as f:
             json.dump(payload, f)
@@ -85,7 +88,7 @@ def save_daily():
         print("daily save error:", e)
 
 def load_data():
-    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED
+    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,EVENT_LOG
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE) as f:
@@ -98,6 +101,7 @@ def load_data():
             CRASH_COUNT  = p.get("crash_count", {})
             SILENCE_LOG  = p.get("silence_log", {})
             NICKNAMES    = p.get("nicknames", {})
+            EVENT_LOG    = p.get("event_log", [])
             PINNED       = set(p.get("pinned", []))
             print(f"Loaded {len(POINTS_CACHE)} accounts")
         except Exception as e:
@@ -160,11 +164,36 @@ def update():
         if len(SILENCE_LOG[account]) > 100: SILENCE_LOG[account] = SILENCE_LOG[account][-100:]
         CRASH_COUNT[account] = CRASH_COUNT.get(account, 0) + 1
 
+    prev_channels = POINTS_CACHE.get(account, {}).get("channels", {})
+
     POINTS_CACHE[account] = {
         "channels": channels, "streamer_status": streamer_status,
         "updated": updated, "first_seen": UPTIME[account],
         "platform": platform
     }
+
+    # Generate live "log" events for point gains (watching ticks, bonus claims, etc).
+    for ch, pts in channels.items():
+        prev_pts = prev_channels.get(ch)
+        if prev_pts is None:
+            continue  # first time seeing this channel for this account - nothing to compare
+        delta = pts - prev_pts
+        if delta <= 0:
+            continue
+        if delta == 10:
+            label = f"watched the stream"
+        elif delta == 50:
+            label = f"claimed the 50 point box"
+        elif delta >= 100:
+            label = f"claimed a big bonus"
+        else:
+            label = f"earned points"
+        EVENT_LOG.append({
+            "ts": now_ts, "account": account, "streamer": ch,
+            "delta": delta, "total": pts, "label": label
+        })
+        if len(EVENT_LOG) > MAX_EVENT_LOG:
+            del EVENT_LOG[:len(EVENT_LOG) - MAX_EVENT_LOG]
 
     if account not in HISTORY: HISTORY[account] = []
     HISTORY[account].append({"ts": int(time.time()*1000), "channels": dict(channels)})
@@ -246,6 +275,21 @@ def streamer_log(): return jsonify(STREAMER_LOG)
 
 @app.route("/api/streamer-log/<streamer>")
 def streamer_log_single(streamer): return jsonify(STREAMER_LOG.get(streamer, []))
+
+@app.route("/api/events")
+def get_events():
+    """Live feed of point-gain events, most recent first.
+    Optional query params: since=<ts> (only events after this), account=<name>, limit=<n>."""
+    since = request.args.get("since", type=int)
+    account = request.args.get("account")
+    limit = request.args.get("limit", type=int) or 200
+    events = EVENT_LOG
+    if since:
+        events = [e for e in events if e["ts"] > since]
+    if account:
+        events = [e for e in events if e["account"] == account]
+    events = list(reversed(events))[:limit]
+    return jsonify(events)
 
 @app.route("/api/daily")
 def daily(): return jsonify(DAILY)
@@ -605,6 +649,7 @@ def save_data():
         "silence_log": SILENCE_LOG,
         "nicknames": NICKNAMES,
         "pinned": list(PINNED),
+        "event_log": EVENT_LOG[-MAX_EVENT_LOG:],
         "github_repos": {
             acc: {**cfg, "token": encrypt_token(cfg.get("token", ""))}
             for acc, cfg in GITHUB_REPOS.items()
@@ -623,7 +668,7 @@ def save_data():
 
 _orig_load = load_data
 def load_data():
-    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,GITHUB_REPOS
+    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,GITHUB_REPOS,EVENT_LOG
     p = None
     source = None
 
@@ -656,6 +701,7 @@ def load_data():
             SILENCE_LOG  = p.get("silence_log", {})
             NICKNAMES    = p.get("nicknames", {})
             PINNED       = set(p.get("pinned", []))
+            EVENT_LOG    = p.get("event_log", [])
             GITHUB_REPOS = {
                 acc: {**cfg, "token": decrypt_token(cfg.get("token", ""))}
                 for acc, cfg in p.get("github_repos", {}).items()
