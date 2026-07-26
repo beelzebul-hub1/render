@@ -1387,12 +1387,21 @@ function bcSwitchTab(tab, acc) {
   renderBcPanel();
 }
 
+function bcNormalizeRepo(raw) {
+  let s = raw.trim();
+  s = s.replace(/^(https?:\/\/)?(www\.)?github\.com\//i, ''); // strip full URL prefix
+  s = s.replace(/\.git$/i, '');                                // strip trailing .git
+  s = s.replace(/\/+$/,'');                                     // strip trailing slash(es)
+  return s;
+}
+
 async function bcLink(acc) {
-  const repo  = document.getElementById('bcRepo').value.trim();
+  const repo  = bcNormalizeRepo(document.getElementById('bcRepo').value);
   const token = document.getElementById('bcToken').value.trim();
   const file  = document.getElementById('bcFile').value.trim() || 'main.py';
   const st    = document.getElementById('bcLinkStatus');
   if (!repo || !token) { st.className='bc-status err'; st.textContent='Please fill in repo and token.'; return; }
+  if (repo.split('/').length !== 2) { st.className='bc-status err'; st.textContent='Repo must be in "owner/reponame" format.'; return; }
   st.className='bc-status loading'; st.textContent='Linking…';
   try {
     const r = await fetch('/api/github/link', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account:acc,repo,token,file})});
@@ -1438,7 +1447,7 @@ async function bcLoadSimple(acc) {
 
     st.className='bc-status ok'; st.textContent='Loaded current settings from GitHub ✓';
     setTimeout(()=>{if(st)st.style.display='none';},3000);
-  } catch(e) { if(st){st.className='bc-status err'; st.textContent='Failed to load';} }
+  } catch(e) { if(st){st.className='bc-status err'; st.textContent='Failed to load: '+e.message;} }
 }
 
 function renderBcStreamerList() {
@@ -1493,7 +1502,7 @@ async function bcLoadCode(acc) {
     if (d.error) { if(st){st.className='bc-status err'; st.textContent=d.error;} return; }
     if (ed) ed.value = d.content;
     if (st) { st.className='bc-status ok'; st.textContent='Loaded ✓'; setTimeout(()=>{if(st)st.style.display='none';},2000); }
-  } catch(e) { if(st){st.className='bc-status err'; st.textContent='Failed to load';} }
+  } catch(e) { if(st){st.className='bc-status err'; st.textContent='Failed to load: '+e.message;} }
 }
 
 async function bcPushCode(acc) {
