@@ -105,8 +105,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* PILLS */
 .pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
 .pill{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:4px 10px 4px 7px;cursor:pointer;transition:all 0.12s;font-size:11px}
-.platform-tab{color:var(--muted2)}
-.platform-tab.active{background:var(--green)!important;color:#06120a!important;border-color:var(--green)!important}
+.platform-section{margin-bottom:28px}
+.platform-section-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;margin-bottom:10px;border-left:3px solid transparent}
+.platform-section-hdr.platform-twitch{background:rgba(145,71,255,0.08);border-left-color:#9147ff}
+.platform-section-hdr.platform-kick{background:rgba(83,252,25,0.08);border-left-color:#53fc19}
+.platform-section-title{font-size:14px;font-weight:700}
+.platform-section-sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .pill:hover{border-color:var(--b3);background:var(--s3)}
 .pill-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .pill-dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
@@ -535,13 +539,6 @@ body.compact .acc-name{font-size:11px}
             <div class="btn btn-ghost" onclick="exportCSV()">↓ CSV</div>
           </div>
         </div>
-        <div class="platform-tabs" id="platformTabs" style="display:flex;gap:8px;margin-bottom:14px">
-          <div class="platform-tab active" data-p="all" onclick="setPlatform('all')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card2,#1a1d24);border:1px solid var(--border,#2a2e37)">All</div>
-          <div class="platform-tab" data-p="twitch" onclick="setPlatform('twitch')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card2,#1a1d24);border:1px solid var(--border,#2a2e37)">🟣 Twitch</div>
-          <div class="platform-tab" data-p="kick" onclick="setPlatform('kick')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--card2,#1a1d24);border:1px solid var(--border,#2a2e37)">🟢 Kick</div>
-          <div style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center" id="platformSubtotal"></div>
-        </div>
-        <div class="pills" id="streamerPills"></div>
         <div class="toolbar">
           <div class="search-box">
             <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
@@ -549,17 +546,45 @@ body.compact .acc-name{font-size:11px}
           </div>
           <div class="refresh-txt" id="refreshLabel">—</div>
         </div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>
-              <th onclick="setSort('account')" id="th-account">Account</th>
-              <th>Channels</th>
-              <th onclick="setSort('total')" id="th-total">Total</th>
-              <th onclick="setSort('status')" id="th-status">Status</th>
-              <th></th>
-            </tr></thead>
-            <tbody id="accBody"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
-          </table>
+
+        <div class="platform-section">
+          <div class="platform-section-hdr platform-twitch">
+            <div class="platform-section-title">🟣 Twitch Accounts</div>
+            <div class="platform-section-sub" id="twitchAcctSubtotal">—</div>
+          </div>
+          <div class="pills" id="streamerPillsTwitch"></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th onclick="setSort('account')" data-sortkey="account">Account</th>
+                <th>Channels</th>
+                <th onclick="setSort('total')" data-sortkey="total">Total</th>
+                <th onclick="setSort('status')" data-sortkey="status">Status</th>
+                <th></th>
+              </tr></thead>
+              <tbody id="accBodyTwitch"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="platform-section">
+          <div class="platform-section-hdr platform-kick">
+            <div class="platform-section-title">🟢 Kick Accounts</div>
+            <div class="platform-section-sub" id="kickAcctSubtotal">—</div>
+          </div>
+          <div class="pills" id="streamerPillsKick"></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th onclick="setSort('account')" data-sortkey="account">Account</th>
+                <th>Channels</th>
+                <th onclick="setSort('total')" data-sortkey="total">Total</th>
+                <th onclick="setSort('status')" data-sortkey="status">Status</th>
+                <th></th>
+              </tr></thead>
+              <tbody id="accBodyKick"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -567,7 +592,20 @@ body.compact .acc-name{font-size:11px}
       <div class="view" id="view-streamers">
         <div id="streamerList">
           <div class="section-hdr"><div><div class="section-title">Streamers</div><div class="section-sub">All tracked streamers</div></div></div>
-          <div class="pills" id="streamerPills2"></div>
+
+          <div class="platform-section">
+            <div class="platform-section-hdr platform-twitch">
+              <div class="platform-section-title">🟣 Twitch Streamers</div>
+            </div>
+            <div class="pills" id="streamerPillsTwitch2"></div>
+          </div>
+
+          <div class="platform-section">
+            <div class="platform-section-hdr platform-kick">
+              <div class="platform-section-title">🟢 Kick Streamers</div>
+            </div>
+            <div class="pills" id="streamerPillsKick2"></div>
+          </div>
         </div>
         <div id="streamerDetail" style="display:none">
           <div class="detail-back" onclick="closeDetail()">← Back to Streamers</div>
@@ -861,8 +899,10 @@ function checkLiveNotifs(){
 // ===================== RENDER ALL =====================
 function renderAll(){
   renderAccounts();
-  renderPills('streamerPills',false);
-  renderPills('streamerPills2',true);
+  renderPillsForPlatform('streamerPillsTwitch','twitch',false);
+  renderPillsForPlatform('streamerPillsKick','kick',false);
+  renderPillsForPlatform('streamerPillsTwitch2','twitch',true);
+  renderPillsForPlatform('streamerPillsKick2','kick',true);
   renderGraphAccList();
   checkAlerts();
   if(document.getElementById('view-leaderboard').classList.contains('active')) renderLeaderboard();
@@ -878,18 +918,20 @@ function checkAlerts(){
   }else b.classList.remove('visible');
 }
 
-function getStreamerData(){
+function getStreamerDataForPlatform(platform){
   const totals={},online={};
-  filteredEntries().forEach(([,info])=>{
+  Object.values(pointsData).forEach(info=>{
+    if((info.platform||'twitch')!==platform) return;
     Object.entries(info.channels||{}).forEach(([ch,pts])=>{totals[ch]=(totals[ch]||0)+pts;});
     Object.entries(info.streamer_status||{}).forEach(([ch,on])=>{if(on)online[ch]=true;else if(online[ch]===undefined)online[ch]=false;});
   });
   return {totals,online};
 }
 
-function renderPills(id,clickable){
+function renderPillsForPlatform(id,platform,clickable){
   const el=document.getElementById(id);
-  const {totals,online}=getStreamerData();
+  if(!el) return;
+  const {totals,online}=getStreamerDataForPlatform(platform);
   const sorted=Object.entries(totals).sort((a,b)=>b[1]-a[1]);
   if(!sorted.length){el.innerHTML=`<div class="pill"><div class="pill-name" style="color:var(--muted)">No streamers yet</div></div>`;return;}
   el.innerHTML=sorted.map(([name,pts])=>`
@@ -900,42 +942,31 @@ function renderPills(id,clickable){
     </div>`).join('');
 }
 
-// ===================== PLATFORM FILTER =====================
-let platformFilter='all';
-function setPlatform(p){
-  platformFilter=p;
-  document.querySelectorAll('.platform-tab').forEach(el=>el.classList.toggle('active', el.dataset.p===p));
-  renderAll();
-}
-function filteredEntries(){
-  return Object.entries(pointsData).filter(([,info])=>{
-    const plat=info.platform||'twitch';
-    return platformFilter==='all' || plat===platformFilter;
-  });
-}
-function updatePlatformSubtotal(){
-  const entries=filteredEntries();
-  const total=entries.reduce((s,[,info])=>s+Object.values(info.channels||{}).reduce((a,b)=>a+b,0),0);
-  const label=platformFilter==='all'?'All platforms':(platformFilter==='kick'?'Kick':'Twitch');
-  document.getElementById('platformSubtotal').textContent=`${label}: ${fmt(total)} pts · ${entries.length} account${entries.length!==1?'s':''}`;
-}
-
-// ===================== ACCOUNTS TABLE =====================
+// ===================== ACCOUNTS TABLES =====================
 function setSort(key){
   if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=-1;}
-  document.querySelectorAll('th').forEach(th=>th.classList.remove('sorted'));
-  const th=document.getElementById('th-'+key);
-  if(th)th.classList.add('sorted');
+  document.querySelectorAll('th[data-sortkey]').forEach(th=>th.classList.toggle('sorted', th.dataset.sortkey===key));
   renderAccounts();
 }
 
 function renderAccounts(){
+  renderAccountsTable('twitch','accBodyTwitch','twitchAcctSubtotal');
+  renderAccountsTable('kick','accBodyKick','kickAcctSubtotal');
+}
+
+function renderAccountsTable(platform,tbodyId,subtotalId){
   const search=document.getElementById('accSearch').value.toLowerCase();
-  const body=document.getElementById('accBody');
+  const body=document.getElementById(tbodyId);
   const now=Date.now()/1000;
 
-  let entries=filteredEntries().filter(([acc])=>acc.toLowerCase().includes(search));
-  updatePlatformSubtotal();
+  let entries=Object.entries(pointsData).filter(([acc,info])=>{
+    const plat=info.platform||'twitch';
+    return plat===platform && acc.toLowerCase().includes(search);
+  });
+
+  const total=entries.reduce((s,[,info])=>s+Object.values(info.channels||{}).reduce((a,b)=>a+b,0),0);
+  const subEl=document.getElementById(subtotalId);
+  if(subEl) subEl.textContent=`${fmt(total)} pts · ${entries.length} account${entries.length!==1?'s':''}`;
 
   // pin sort
   entries.sort(([accA,infoA],[accB,infoB])=>{
@@ -955,9 +986,12 @@ function renderAccounts(){
     return 0;
   });
 
-  if(!entries.length){body.innerHTML=`<tr class="empty-row"><td colspan="5">No accounts found</td></tr>`;return;}
+  if(!entries.length){body.innerHTML=`<tr class="empty-row"><td colspan="5">No ${platform==='kick'?'Kick':'Twitch'} accounts found</td></tr>`;return;}
 
-  body.innerHTML=entries.map(([account,info])=>{
+  body.innerHTML=entries.map(([account,info])=>buildAccountRow(account,info,now)).join('');
+}
+
+function buildAccountRow(account,info,now){
     const channels=Object.entries(info.channels||{}).sort((a,b)=>b[1]-a[1]);
     const total=channels.reduce((s,[,p])=>s+p,0);
     const age=info.updated?now-info.updated:9999;
@@ -1003,7 +1037,7 @@ function renderAccounts(){
 
     return `<tr class="${rowClass}">
       <td class="cell">
-        <div class="acc-name" onclick="openNickModal('${account}')">${account} <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;vertical-align:middle;${(info.platform||'twitch')==='kick'?'background:rgba(83,252,25,0.15);color:#53fc19':'background:rgba(145,71,255,0.15);color:#9147ff'}">${(info.platform||'twitch')==='kick'?'KICK':'TWITCH'}</span></div>
+        <div class="acc-name" onclick="openNickModal('${account}')">${account}</div>
         ${nick?`<div class="acc-nick">${nick}</div>`:''}
         <div class="acc-meta">
           ${uptimeStr?`<span class="uptime-txt">${uptimeStr}</span>`:''}
@@ -1027,7 +1061,6 @@ function renderAccounts(){
         </div>
       </td>
     </tr>`;
-  }).join('');
 }
 
 // ===================== STREAMER DETAIL =====================
