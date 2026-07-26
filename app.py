@@ -366,14 +366,29 @@ def gh_get_file(cfg):
     token = cfg["token"]
     file  = cfg.get("file", "main.py")
     url   = f"https://api.github.com/repos/{repo}/contents/{file}"
-    r = requests.get(url, headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }, timeout=10)
+    try:
+        r = requests.get(url, headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"
+        }, timeout=10)
+    except requests.exceptions.RequestException as e:
+        return None, None, f"Network error contacting GitHub: {e}"
+
+    try:
+        j = r.json()
+    except ValueError:
+        return None, None, f"GitHub returned a non-JSON response (status {r.status_code})"
+
     if r.status_code != 200:
-        return None, None, r.json().get("message","GitHub error")
-    j = r.json()
-    content = base64.b64decode(j["content"]).decode("utf-8")
+        return None, None, j.get("message", f"GitHub error (status {r.status_code})")
+    if isinstance(j, list):
+        return None, None, f"'{file}' is a directory, not a file — set File to the exact file path (e.g. bot/main.py)"
+    if "content" not in j:
+        return None, None, f"Unexpected response from GitHub for '{file}'"
+    try:
+        content = base64.b64decode(j["content"]).decode("utf-8")
+    except Exception as e:
+        return None, None, f"Could not decode file content: {e}"
     return content, j["sha"], None
 
 def gh_push_file(cfg, new_content, commit_message="Update bot config from dashboard"):
@@ -390,23 +405,35 @@ def gh_push_file(cfg, new_content, commit_message="Update bot config from dashbo
         "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
         "sha": sha
     }
-    r = requests.put(url, json=payload, headers={
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }, timeout=15)
+    try:
+        r = requests.put(url, json=payload, headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"
+        }, timeout=15)
+    except requests.exceptions.RequestException as e:
+        return False, f"Network error contacting GitHub: {e}"
+    try:
+        j = r.json()
+    except ValueError:
+        j = {}
     if r.status_code in (200, 201):
         return True, None
-    return False, r.json().get("message", "GitHub push failed")
+    return False, j.get("message", f"GitHub push failed (status {r.status_code})")
 
 @app.route("/api/github/code/<account>", methods=["GET"])
 def get_code(account):
     cfg = GITHUB_REPOS.get(account)
     if not cfg:
         return jsonify({"error": "not linked"}), 404
-    content, sha, err = gh_get_file(cfg)
+    try:
+        content, sha, err = gh_get_file(cfg)
+    except Exception as e:
+        return jsonify({"error": f"Unexpected server error: {e}"}), 500
     if err:
         return jsonify({"error": err}), 500
     return jsonify({"content": content, "sha": sha})
+
+
 
 @app.route("/api/github/code/<account>", methods=["POST"])
 def push_code(account):
