@@ -435,29 +435,64 @@ def gh_push_file(cfg, new_content, commit_message="Update bot config from dashbo
         return True, None
     return False, j.get("message", f"GitHub push failed (status {r.status_code})")
 
+STATE_BACKUP_STATUS = {
+    "last_push_ok": None,      # True / False / None (never attempted)
+    "last_push_error": None,
+    "last_push_time": None,
+    "last_pull_ok": None,
+    "last_pull_error": None,
+    "last_pull_time": None,
+}
+
 def gh_state_pull():
     """Fetch the persisted app-state JSON from the backup GitHub repo, if configured."""
     if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
+        STATE_BACKUP_STATUS["last_pull_ok"] = False
+        STATE_BACKUP_STATUS["last_pull_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
+        STATE_BACKUP_STATUS["last_pull_time"] = datetime.now(timezone.utc).isoformat()
         return None
     cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
     content, sha, err = gh_get_file(cfg)
+    STATE_BACKUP_STATUS["last_pull_time"] = datetime.now(timezone.utc).isoformat()
     if err:
+        STATE_BACKUP_STATUS["last_pull_ok"] = False
+        STATE_BACKUP_STATUS["last_pull_error"] = err
         print("state backup pull:", err)
         return None
     try:
-        return json.loads(content)
+        parsed = json.loads(content)
+        STATE_BACKUP_STATUS["last_pull_ok"] = True
+        STATE_BACKUP_STATUS["last_pull_error"] = None
+        return parsed
     except Exception as e:
+        STATE_BACKUP_STATUS["last_pull_ok"] = False
+        STATE_BACKUP_STATUS["last_pull_error"] = f"parse error: {e}"
         print("state backup parse error:", e)
         return None
 
 def gh_state_push(payload):
     """Push the current app-state JSON to the backup GitHub repo, if configured."""
     if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
+        STATE_BACKUP_STATUS["last_push_ok"] = False
+        STATE_BACKUP_STATUS["last_push_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
+        STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
         return
     cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
     ok, err = gh_push_file(cfg, json.dumps(payload), "Auto-backup dashboard state")
+    STATE_BACKUP_STATUS["last_push_ok"] = ok
+    STATE_BACKUP_STATUS["last_push_error"] = err
+    STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
     if not ok:
         print("state backup push:", err)
+
+@app.route("/api/debug/backup-status")
+def backup_status():
+    return jsonify({
+        "configured": bool(STATE_GITHUB_REPO and STATE_GITHUB_TOKEN),
+        "repo": STATE_GITHUB_REPO,
+        "file": STATE_GITHUB_FILE,
+        **STATE_BACKUP_STATUS,
+    })
 
 @app.route("/api/github/code/<account>", methods=["GET"])
 def get_code(account):
