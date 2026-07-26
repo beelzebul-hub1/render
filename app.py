@@ -10,8 +10,19 @@ app = Flask(__name__, static_folder="static")
 
 MAX_HISTORY  = 500
 SAVE_INTERVAL= 60
+
+# Local file: survives a same-container crash/restart, but NOT a Render
+# redeploy (new container = wiped disk on the free tier). Real persistence
+# across redeploys comes from the GitHub state backup further down.
 DATA_FILE    = "data.json"
 DAILY_FILE   = "daily.json"
+
+# Dedicated private GitHub repo used to back up all dashboard state so it
+# survives restarts/redeploys without needing a paid Render disk. Set these
+# in the Render dashboard (see render.yaml).
+STATE_GITHUB_REPO  = os.environ.get("STATE_GITHUB_REPO")   # "owner/reponame"
+STATE_GITHUB_TOKEN = os.environ.get("STATE_GITHUB_TOKEN")  # PAT with repo scope
+STATE_GITHUB_FILE  = os.environ.get("STATE_GITHUB_FILE", "dashboard_state.json")
 
 POINTS_CACHE = {}
 HISTORY      = {}
@@ -393,19 +404,22 @@ def gh_get_file(cfg):
     return content, j["sha"], None
 
 def gh_push_file(cfg, new_content, commit_message="Update bot config from dashboard"):
-    """Push new content to GitHub file."""
+    """Push new content to GitHub file. Creates the file if it doesn't exist yet."""
     repo  = cfg["repo"]
     token = cfg["token"]
     file  = cfg.get("file", "main.py")
     _, sha, err = gh_get_file(cfg)
-    if err:
+    if err and "not found" not in err.lower():
+        # A real error (bad token, bad repo, etc.) - can't proceed.
         return False, err
+    # sha stays None if the file doesn't exist yet; GitHub creates it in that case.
     url = f"https://api.github.com/repos/{repo}/contents/{file}"
     payload = {
         "message": commit_message,
         "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
-        "sha": sha
     }
+    if sha:
+        payload["sha"] = sha
     try:
         r = requests.put(url, json=payload, headers={
             "Authorization": f"token {token}",
@@ -420,6 +434,30 @@ def gh_push_file(cfg, new_content, commit_message="Update bot config from dashbo
     if r.status_code in (200, 201):
         return True, None
     return False, j.get("message", f"GitHub push failed (status {r.status_code})")
+
+def gh_state_pull():
+    """Fetch the persisted app-state JSON from the backup GitHub repo, if configured."""
+    if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
+        return None
+    cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
+    content, sha, err = gh_get_file(cfg)
+    if err:
+        print("state backup pull:", err)
+        return None
+    try:
+        return json.loads(content)
+    except Exception as e:
+        print("state backup parse error:", e)
+        return None
+
+def gh_state_push(payload):
+    """Push the current app-state JSON to the backup GitHub repo, if configured."""
+    if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
+        return
+    cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
+    ok, err = gh_push_file(cfg, json.dumps(payload), "Auto-backup dashboard state")
+    if not ok:
+        print("state backup push:", err)
 
 @app.route("/api/github/code/<account>", methods=["GET"])
 def get_code(account):
@@ -508,32 +546,56 @@ def patch_code(account):
 # Patch load_data / save_data to include GITHUB_REPOS
 _orig_save = save_data
 def save_data():
+    payload = {
+        "points_cache": POINTS_CACHE,
+        "history": {a: list(s) for a,s in HISTORY.items()},
+        "peak": PEAK,
+        "streamer_log": STREAMER_LOG,
+        "uptime": UPTIME,
+        "crash_count": CRASH_COUNT,
+        "silence_log": SILENCE_LOG,
+        "goals": GOALS,
+        "nicknames": NICKNAMES,
+        "pinned": list(PINNED),
+        "github_repos": {acc: {k:v for k,v in cfg.items()} for acc,cfg in GITHUB_REPOS.items()},
+    }
     try:
-        payload = {
-            "points_cache": POINTS_CACHE,
-            "history": {a: list(s) for a,s in HISTORY.items()},
-            "peak": PEAK,
-            "streamer_log": STREAMER_LOG,
-            "uptime": UPTIME,
-            "crash_count": CRASH_COUNT,
-            "silence_log": SILENCE_LOG,
-            "goals": GOALS,
-            "nicknames": NICKNAMES,
-            "pinned": list(PINNED),
-            "github_repos": {acc: {k:v for k,v in cfg.items()} for acc,cfg in GITHUB_REPOS.items()},
-        }
         with open(DATA_FILE, "w") as f:
             json.dump(payload, f)
     except Exception as e:
-        print("save error:", e)
+        print("local save error:", e)
+    # Best-effort backup to GitHub so this survives a redeploy, not just a crash.
+    try:
+        gh_state_push(payload)
+    except Exception as e:
+        print("state backup push error:", e)
 
 _orig_load = load_data
 def load_data():
     global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,GOALS,NICKNAMES,PINNED,GITHUB_REPOS
-    if os.path.exists(DATA_FILE):
+    p = None
+    source = None
+
+    # 1. Prefer the GitHub backup — it survives redeploys, local disk doesn't.
+    try:
+        p = gh_state_pull()
+        if p is not None:
+            source = "GitHub backup"
+    except Exception as e:
+        print("state backup pull error:", e)
+
+    # 2. Fall back to the local file (covers a same-container crash/restart,
+    #    or a first run before any GitHub backup exists yet).
+    if p is None and os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE) as f:
                 p = json.load(f)
+            source = "local disk"
+        except Exception as e:
+            print("local load error:", e)
+
+    if p:
+        try:
             POINTS_CACHE = p.get("points_cache", {})
             HISTORY      = {a: list(s) for a,s in p.get("history", {}).items()}
             PEAK         = p.get("peak", {})
@@ -545,9 +607,12 @@ def load_data():
             NICKNAMES    = p.get("nicknames", {})
             PINNED       = set(p.get("pinned", []))
             GITHUB_REPOS = p.get("github_repos", {})
-            print(f"Loaded {len(POINTS_CACHE)} accounts")
+            print(f"Loaded {len(POINTS_CACHE)} accounts from {source}")
         except Exception as e:
-            print("load error:", e)
+            print("load apply error:", e)
+    else:
+        print("No prior state found (GitHub backup or local) — starting fresh")
+
     if os.path.exists(DAILY_FILE):
         try:
             with open(DAILY_FILE) as f:
