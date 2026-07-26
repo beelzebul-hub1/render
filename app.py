@@ -505,6 +505,24 @@ def gh_state_push(payload):
         STATE_BACKUP_STATUS["last_push_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
         STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
         return
+
+    # Safety net: a container that hasn't finished loading yet (or a stale
+    # container lingering during a redeploy) has a blank in-memory state.
+    # If its periodic autosave fires in that window, it would otherwise
+    # silently overwrite a real backup with nothing. Refuse that specific
+    # case: pushing blank is only ever allowed if the current remote backup
+    # is *also* already blank (nothing real to lose).
+    is_blank = not payload.get("points_cache") and not payload.get("github_repos")
+    if is_blank:
+        existing = gh_state_pull()
+        if existing and (existing.get("points_cache") or existing.get("github_repos")):
+            msg = "skipped: refusing to overwrite a non-empty backup with a blank state"
+            STATE_BACKUP_STATUS["last_push_ok"] = False
+            STATE_BACKUP_STATUS["last_push_error"] = msg
+            STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
+            print("state backup push:", msg)
+            return
+
     cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
     ok, err = gh_push_file(cfg, json.dumps(payload), "Auto-backup dashboard state")
     STATE_BACKUP_STATUS["last_push_ok"] = ok
