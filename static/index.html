@@ -222,8 +222,6 @@ body.compact .acc-name{font-size:11px}
 .modal input::placeholder{color:var(--muted)}
 
 /* STREAMER DETAIL */
-.detail-back{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;margin-bottom:14px;padding:5px 9px;border:1px solid var(--b1);border-radius:6px;background:var(--s2);transition:all 0.12s}
-.detail-back:hover{color:var(--text);border-color:var(--b2)}
 .detail-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .detail-ava{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--purple3),var(--purple));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:white;flex-shrink:0}
 .detail-live-badge{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700}
@@ -242,19 +240,6 @@ body.compact .acc-name{font-size:11px}
 .log-dot2.on{background:var(--green)}.log-dot2.off{background:var(--red)}
 .log-ev{font-weight:600}
 .log-t{color:var(--muted);margin-left:auto;font-family:var(--mono);font-size:10px}
-
-/* LEADERBOARD */
-.lb-list{display:flex;flex-direction:column;gap:6px}
-.lb-item{display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 14px;transition:all 0.12s}
-.lb-item:hover{border-color:var(--b2)}
-.lb-rank{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--muted);width:24px;flex-shrink:0;text-align:center}
-.lb-rank.gold{color:#f59e0b}
-.lb-rank.silver{color:#9ca3af}
-.lb-rank.bronze{color:#b45309}
-.lb-name{font-size:12px;font-weight:600;font-family:var(--mono);flex:1}
-.lb-bar-wrap{flex:2;height:6px;background:var(--b2);border-radius:3px;overflow:hidden}
-.lb-bar{height:100%;background:linear-gradient(90deg,var(--purple2),var(--purple));border-radius:3px;transition:width 0.6s}
-.lb-pts{font-size:12px;font-family:var(--mono);font-weight:700;color:var(--green);width:60px;text-align:right}
 
 /* NOTIFICATION TOAST */
 .toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
@@ -361,7 +346,29 @@ body.compact .acc-name{font-size:11px}
   </div>
 </div>
 
+<!-- STREAMER DETAIL MODAL (opened via streamer pill click) -->
+<div class="modal-overlay" id="streamerModal" onclick="if(event.target===this)closeDetail()">
+  <div class="modal" style="max-width:520px">
+    <div class="detail-hdr">
+      <div class="detail-ava" id="dAva"></div>
+      <div><div style="font-size:17px;font-weight:700" id="dName"></div><div style="font-size:11px;color:var(--muted);margin-top:2px" id="dSub"></div></div>
+      <div class="detail-live-badge" id="dLive"><div class="dot"></div><span></span></div>
+      <div class="icon-btn" style="margin-left:auto" onclick="closeDetail()">✕</div>
+    </div>
+    <div class="stat-cards">
+      <div class="stat-card"><div class="sc-label">Total Points</div><div class="sc-val" id="dTotalPts">—</div></div>
+      <div class="stat-card"><div class="sc-label">Watching</div><div class="sc-val" id="dCount">—</div></div>
+    </div>
+    <div class="tbl-wrap" style="margin-bottom:16px;max-height:220px;overflow-y:auto">
+      <table><thead><tr><th>Account</th><th>Points</th></tr></thead><tbody id="dBody"></tbody></table>
+    </div>
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Online / Offline Log</div>
+    <div class="log-list" id="dLog" style="max-height:180px;overflow-y:auto"></div>
+  </div>
+</div>
+
 <div class="app">
+
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">
@@ -378,13 +385,9 @@ body.compact .acc-name{font-size:11px}
         Accounts
         <span class="nav-badge" id="silentBadge" style="display:none">0</span>
       </div>
-      <div class="nav-item" onclick="nav('streamers')" id="nav-streamers">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
-        Streamers
-      </div>
-      <div class="nav-item" onclick="nav('leaderboard')" id="nav-leaderboard">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/></svg>
-        Leaderboard
+      <div class="nav-item" onclick="nav('logs')" id="nav-logs">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm3 1h6a1 1 0 010 2H7a1 1 0 010-2zm0 4h6a1 1 0 010 2H7a1 1 0 010-2zm0 4h4a1 1 0 010 2H7a1 1 0 010-2z" clip-rule="evenodd"/></svg>
+        Logs
       </div>
       <div class="nav-label" style="margin-top:8px">Control</div>
       <div class="nav-item" onclick="nav('botcontrol')" id="nav-botcontrol">
@@ -497,50 +500,22 @@ body.compact .acc-name{font-size:11px}
         </div>
       </div>
 
-      <!-- STREAMERS -->
-      <div class="view" id="view-streamers">
-        <div id="streamerList">
-          <div class="section-hdr"><div><div class="section-title">Streamers</div><div class="section-sub">All tracked streamers</div></div></div>
-
-          <div class="platform-columns">
-            <div class="platform-section">
-              <div class="platform-section-hdr platform-twitch">
-                <div class="platform-section-title">🟣 Twitch Streamers <span class="platform-badge platform-twitch">Twitch</span></div>
-              </div>
-              <div class="pills" id="streamerPillsTwitch2"></div>
-            </div>
-
-            <div class="platform-section">
-              <div class="platform-section-hdr platform-kick">
-                <div class="platform-section-title">🟢 Kick Streamers <span class="platform-badge platform-kick">Kick</span></div>
-              </div>
-              <div class="pills" id="streamerPillsKick2"></div>
-            </div>
+      <!-- LOGS -->
+      <div class="view" id="view-logs">
+        <div class="section-hdr">
+          <div><div class="section-title">Logs</div><div class="section-sub">Live feed of point events across all accounts</div></div>
+          <div class="section-actions">
+            <div class="btn btn-ghost" id="logsLiveToggle" onclick="toggleLogsLive()">⏸ Pause</div>
           </div>
         </div>
-        <div id="streamerDetail" style="display:none">
-          <div class="detail-back" onclick="closeDetail()">← Back to Streamers</div>
-          <div class="detail-hdr">
-            <div class="detail-ava" id="dAva"></div>
-            <div><div style="font-size:17px;font-weight:700" id="dName"></div><div style="font-size:11px;color:var(--muted);margin-top:2px" id="dSub"></div></div>
-            <div class="detail-live-badge" id="dLive"><div class="dot"></div><span></span></div>
+        <div class="toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+            <input class="search" id="logsSearch" placeholder="Filter by account or streamer…" oninput="renderLogs()"/>
           </div>
-          <div class="stat-cards">
-            <div class="stat-card"><div class="sc-label">Total Points</div><div class="sc-val" id="dTotalPts">—</div></div>
-            <div class="stat-card"><div class="sc-label">Watching</div><div class="sc-val" id="dCount">—</div></div>
-          </div>
-          <div class="tbl-wrap" style="margin-bottom:16px">
-            <table><thead><tr><th>Account</th><th>Points</th></tr></thead><tbody id="dBody"></tbody></table>
-          </div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Online / Offline Log</div>
-          <div class="log-list" id="dLog"></div>
+          <div class="refresh-txt" id="logsCount">—</div>
         </div>
-      </div>
-
-      <!-- LEADERBOARD -->
-      <div class="view" id="view-leaderboard">
-        <div class="section-hdr"><div><div class="section-title">Leaderboard</div><div class="section-sub">Ranked by total points</div></div></div>
-        <div class="lb-list" id="lbList"></div>
+        <div class="log-list" id="logsList" style="max-height:none"></div>
       </div>
 
       <!-- BOT CONTROL -->
@@ -555,6 +530,10 @@ body.compact .acc-name{font-size:11px}
           <!-- Account list -->
           <div class="bc-sidebar">
             <div class="bc-sidebar-hdr">Accounts</div>
+            <div class="search-box" style="margin:0 10px 8px">
+              <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+              <input class="search" id="bcAccSearch" placeholder="Search accounts…" oninput="renderBcAccList()"/>
+            </div>
             <div class="bc-acc-list" id="bcAccList"></div>
           </div>
           <!-- Panel -->
@@ -588,6 +567,7 @@ body.compact .acc-name{font-size:11px}
 <script>
 // ===================== STATE =====================
 let pointsData={}, peakData={}, uptimeData={}, deltaCache={}, nicknames={}, pinnedAccs=[], crashData={};
+let eventLog=[], logsLive=true;
 let sortKey='total', sortDir=-1;
 let deleteTarget=null, nickTarget=null;
 let prevLiveStreamers={};
@@ -638,7 +618,7 @@ function nav(page){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('nav-'+page).classList.add('active');
   document.getElementById('view-'+page).classList.add('active');
-  if(page==='leaderboard') renderLeaderboard();
+  if(page==='logs') renderLogs();
   if(page==='botcontrol') { loadBcRepos().then(()=>{ renderBcAccList(); }); }
 }
 
@@ -653,9 +633,10 @@ function toggleCompact(){
 document.addEventListener('keydown',e=>{
   if(document.activeElement.tagName==='INPUT') return;
   if(e.key==='1') nav('accounts');
-  else if(e.key==='2') nav('streamers');
-  else if(e.key==='3') nav('leaderboard');
+  else if(e.key==='2') nav('logs');
+  else if(e.key==='3') nav('botcontrol');
   else if(e.key==='c') toggleCompact();
+  else if(e.key==='Escape') closeDetail();
 });
 
 // ===================== TOAST =====================
@@ -704,6 +685,13 @@ async function load(){
       fetch(`/api/delta/${acc}`).then(r=>r.json()).then(d=>{deltaCache[acc]=d;}).catch(()=>{});
     });
 
+    if(logsLive){
+      fetch('/api/events?limit=300').then(r=>r.json()).then(d=>{
+        eventLog=d;
+        if(document.getElementById('view-logs').classList.contains('active')) renderLogs();
+      }).catch(()=>{});
+    }
+
     checkLiveNotifs();
     renderAll();
     const t=new Date();
@@ -738,12 +726,9 @@ function checkLiveNotifs(){
 // ===================== RENDER ALL =====================
 function renderAll(){
   renderAccounts();
-  renderPillsForPlatform('streamerPillsTwitch','twitch',false);
-  renderPillsForPlatform('streamerPillsKick','kick',false);
-  renderPillsForPlatform('streamerPillsTwitch2','twitch',true);
-  renderPillsForPlatform('streamerPillsKick2','kick',true);
+  renderPillsForPlatform('streamerPillsTwitch','twitch',true);
+  renderPillsForPlatform('streamerPillsKick','kick',true);
   checkAlerts();
-  if(document.getElementById('view-leaderboard').classList.contains('active')) renderLeaderboard();
 }
 
 function checkAlerts(){
@@ -895,8 +880,7 @@ function buildAccountRow(account,info,now){
 
 // ===================== STREAMER DETAIL =====================
 async function openDetail(name){
-  document.getElementById('streamerList').style.display='none';
-  document.getElementById('streamerDetail').style.display='block';
+  document.getElementById('streamerModal').classList.add('open');
   const accounts=[];
   let total=0,isOn=false;
   Object.entries(pointsData).forEach(([acc,info])=>{
@@ -925,29 +909,31 @@ async function openDetail(name){
   }catch(e){}
 }
 function closeDetail(){
-  document.getElementById('streamerList').style.display='block';
-  document.getElementById('streamerDetail').style.display='none';
+  document.getElementById('streamerModal').classList.remove('open');
 }
 
-// ===================== LEADERBOARD =====================
-function renderLeaderboard(){
-  const el=document.getElementById('lbList');
-  const entries=Object.entries(pointsData).map(([acc,info])=>{
-    const total=Object.values(info.channels||{}).reduce((s,v)=>s+v,0);
-    return {acc,total};
-  }).sort((a,b)=>b.total-a.total);
-  if(!entries.length){el.innerHTML=`<div style="color:var(--muted);font-size:12px">No data yet</div>`;return;}
-  const max=entries[0].total||1;
-  el.innerHTML=entries.map(({acc,total},i)=>{
-    const rankClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
-    const nick=nicknames[acc];
-    return `<div class="lb-item">
-      <div class="lb-rank ${rankClass}">${i+1}</div>
-      <div class="lb-name">${nick||acc}</div>
-      <div class="lb-bar-wrap"><div class="lb-bar" style="width:${Math.round(total/max*100)}%"></div></div>
-      <div class="lb-pts">${fmt(total)}</div>
-    </div>`;
-  }).join('');
+// ===================== LOGS =====================
+function toggleLogsLive(){
+  logsLive=!logsLive;
+  document.getElementById('logsLiveToggle').textContent = logsLive ? '⏸ Pause' : '▶ Resume';
+}
+
+function renderLogs(){
+  const el=document.getElementById('logsList');
+  const countEl=document.getElementById('logsCount');
+  const search=(document.getElementById('logsSearch').value||'').toLowerCase();
+  let entries=eventLog;
+  if(search){
+    entries=entries.filter(e=>e.account.toLowerCase().includes(search)||e.streamer.toLowerCase().includes(search));
+  }
+  countEl.textContent=`${entries.length} event${entries.length!==1?'s':''}`;
+  if(!entries.length){el.innerHTML=`<div style="color:var(--muted);font-size:12px;padding:12px">No events yet — logs appear here as accounts earn points.</div>`;return;}
+  el.innerHTML=entries.map(e=>`
+    <div class="log-item">
+      <div class="log-dot2 on"></div>
+      <div class="log-ev"><b style="font-family:var(--mono)">${e.account}</b> ${e.label} on <b>${e.streamer}</b> <span style="color:var(--green);font-weight:700">+${e.delta}</span> <span style="color:var(--muted)">(total ${fmt(e.total)})</span></div>
+      <div class="log-t">${fmtTs(e.ts)}</div>
+    </div>`).join('');
 }
 
 // ===================== MODALS =====================
@@ -1030,8 +1016,9 @@ async function loadBcRepos() {
 
 function renderBcAccList() {
   const el = document.getElementById('bcAccList');
-  const accs = Object.keys(pointsData);
-  if (!accs.length) { el.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--muted)">No accounts yet</div>'; return; }
+  const search = (document.getElementById('bcAccSearch')?.value||'').toLowerCase();
+  const accs = Object.keys(pointsData).filter(a=>a.toLowerCase().includes(search));
+  if (!accs.length) { el.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--muted)">No accounts found</div>'; return; }
   el.innerHTML = accs.map(acc => {
     const linked = bcLinkedRepos[acc]?.linked;
     return `<div class="bc-acc-item ${acc===bcSelectedAcc?'active':''}" onclick="bcSelectAcc('${acc}')">
