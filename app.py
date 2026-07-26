@@ -318,6 +318,7 @@ if __name__ == "__main__":
 # ============================================================
 import base64
 import re
+import requests
 
 # { account -> { "repo": "owner/repo", "token": "ghp_xxx", "file": "main.py" } }
 GITHUB_REPOS = {}
