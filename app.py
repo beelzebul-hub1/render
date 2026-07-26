@@ -312,3 +312,224 @@ def health(): return "OK", 200
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
+# ============================================================
+# GITHUB BOT CONTROL
+# ============================================================
+import base64
+import re
+
+# { account -> { "repo": "owner/repo", "token": "ghp_xxx", "file": "main.py" } }
+GITHUB_REPOS = {}
+
+@app.route("/api/github/repos", methods=["GET"])
+def get_github_repos():
+    # Return repos without exposing tokens
+    safe = {}
+    for acc, cfg in GITHUB_REPOS.items():
+        safe[acc] = {"repo": cfg.get("repo",""), "file": cfg.get("file","main.py"), "linked": bool(cfg.get("token"))}
+    return jsonify(safe)
+
+@app.route("/api/github/link", methods=["POST"])
+def link_github_repo():
+    data = request.json
+    account = data.get("account")
+    repo    = data.get("repo")     # "owner/reponame"
+    token   = data.get("token")    # GitHub personal access token
+    file    = data.get("file", "main.py")
+    if not all([account, repo, token]):
+        return jsonify({"error": "missing fields"}), 400
+    GITHUB_REPOS[account] = {"repo": repo, "token": token, "file": file}
+    save_data()
+    return jsonify({"ok": True})
+
+@app.route("/api/github/unlink/<account>", methods=["DELETE"])
+def unlink_github_repo(account):
+    GITHUB_REPOS.pop(account, None)
+    save_data()
+    return jsonify({"ok": True})
+
+def gh_get_file(cfg):
+    """Fetch current file content + sha from GitHub."""
+    repo  = cfg["repo"]
+    token = cfg["token"]
+    file  = cfg.get("file", "main.py")
+    url   = f"https://api.github.com/repos/{repo}/contents/{file}"
+    r = requests.get(url, headers={
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }, timeout=10)
+    if r.status_code != 200:
+        return None, None, r.json().get("message","GitHub error")
+    j = r.json()
+    content = base64.b64decode(j["content"]).decode("utf-8")
+    return content, j["sha"], None
+
+def gh_push_file(cfg, new_content, commit_message="Update bot config from dashboard"):
+    """Push new content to GitHub file."""
+    repo  = cfg["repo"]
+    token = cfg["token"]
+    file  = cfg.get("file", "main.py")
+    _, sha, err = gh_get_file(cfg)
+    if err:
+        return False, err
+    url = f"https://api.github.com/repos/{repo}/contents/{file}"
+    payload = {
+        "message": commit_message,
+        "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
+        "sha": sha
+    }
+    r = requests.put(url, json=payload, headers={
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    }, timeout=15)
+    if r.status_code in (200, 201):
+        return True, None
+    return False, r.json().get("message", "GitHub push failed")
+
+@app.route("/api/github/code/<account>", methods=["GET"])
+def get_code(account):
+    cfg = GITHUB_REPOS.get(account)
+    if not cfg:
+        return jsonify({"error": "not linked"}), 404
+    content, sha, err = gh_get_file(cfg)
+    if err:
+        return jsonify({"error": err}), 500
+    return jsonify({"content": content, "sha": sha})
+
+@app.route("/api/github/code/<account>", methods=["POST"])
+def push_code(account):
+    cfg = GITHUB_REPOS.get(account)
+    if not cfg:
+        return jsonify({"error": "not linked"}), 404
+    data = request.json
+    new_content = data.get("content")
+    message     = data.get("message", "Update bot config from dashboard")
+    if not new_content:
+        return jsonify({"error": "no content"}), 400
+    ok, err = gh_push_file(cfg, new_content, message)
+    if not ok:
+        return jsonify({"error": err}), 500
+    return jsonify({"ok": True})
+
+@app.route("/api/github/mass-update", methods=["POST"])
+def mass_update():
+    data = request.json
+    new_content = data.get("content")
+    accounts    = data.get("accounts", [])  # empty = all linked
+    message     = data.get("message", "Mass update from dashboard")
+    if not new_content:
+        return jsonify({"error": "no content"}), 400
+    targets = accounts if accounts else list(GITHUB_REPOS.keys())
+    results = {}
+    for acc in targets:
+        cfg = GITHUB_REPOS.get(acc)
+        if not cfg:
+            results[acc] = "not linked"
+            continue
+        ok, err = gh_push_file(cfg, new_content, message)
+        results[acc] = "ok" if ok else err
+    return jsonify({"results": results})
+
+@app.route("/api/github/patch/<account>", methods=["POST"])
+def patch_code(account):
+    """
+    Patch specific settings in main.py without touching the rest of the code.
+    Supports: streamers list, greet_streamer, greet_message
+    """
+    cfg = GITHUB_REPOS.get(account)
+    if not cfg:
+        return jsonify({"error": "not linked"}), 404
+    data = request.json
+    content, sha, err = gh_get_file(cfg)
+    if err:
+        return jsonify({"error": err}), 500
+
+    original = content
+
+    # Patch streamers list
+    if "streamers" in data:
+        streamers = data["streamers"]
+        streamer_lines = ",\n        ".join([f'Streamer("{s}")' for s in streamers])
+        new_block = f'[\n        {streamer_lines},\n    ]'
+        content = re.sub(
+            r'twitch_miner\.mine\(\s*\[.*?\]',
+            f'twitch_miner.mine({new_block}',
+            content, flags=re.DOTALL
+        )
+
+    # Patch GREET_STREAMER
+    if "greet_streamer" in data:
+        content = re.sub(
+            r'GREET_STREAMER\s*=\s*"[^"]*"',
+            f'GREET_STREAMER = "{data["greet_streamer"]}"',
+            content
+        )
+
+    # Patch GREET_MESSAGE
+    if "greet_message" in data:
+        content = re.sub(
+            r'GREET_MESSAGE\s*=\s*"[^"]*"',
+            f'GREET_MESSAGE  = "{data["greet_message"]}"',
+            content
+        )
+
+    if content == original:
+        return jsonify({"ok": True, "note": "no changes detected"})
+
+    ok, err = gh_push_file(cfg, content, data.get("message", "Patch settings from dashboard"))
+    if not ok:
+        return jsonify({"error": err}), 500
+    return jsonify({"ok": True})
+
+# Patch load_data / save_data to include GITHUB_REPOS
+_orig_save = save_data
+def save_data():
+    try:
+        payload = {
+            "points_cache": POINTS_CACHE,
+            "history": {a: list(s) for a,s in HISTORY.items()},
+            "peak": PEAK,
+            "streamer_log": STREAMER_LOG,
+            "uptime": UPTIME,
+            "crash_count": CRASH_COUNT,
+            "silence_log": SILENCE_LOG,
+            "goals": GOALS,
+            "nicknames": NICKNAMES,
+            "pinned": list(PINNED),
+            "github_repos": {acc: {k:v for k,v in cfg.items()} for acc,cfg in GITHUB_REPOS.items()},
+        }
+        with open(DATA_FILE, "w") as f:
+            json.dump(payload, f)
+    except Exception as e:
+        print("save error:", e)
+
+_orig_load = load_data
+def load_data():
+    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,GOALS,NICKNAMES,PINNED,GITHUB_REPOS
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE) as f:
+                p = json.load(f)
+            POINTS_CACHE = p.get("points_cache", {})
+            HISTORY      = {a: list(s) for a,s in p.get("history", {}).items()}
+            PEAK         = p.get("peak", {})
+            STREAMER_LOG = p.get("streamer_log", {})
+            UPTIME       = p.get("uptime", {})
+            CRASH_COUNT  = p.get("crash_count", {})
+            SILENCE_LOG  = p.get("silence_log", {})
+            GOALS        = p.get("goals", {})
+            NICKNAMES    = p.get("nicknames", {})
+            PINNED       = set(p.get("pinned", []))
+            GITHUB_REPOS = p.get("github_repos", {})
+            print(f"Loaded {len(POINTS_CACHE)} accounts")
+        except Exception as e:
+            print("load error:", e)
+    if os.path.exists(DAILY_FILE):
+        try:
+            with open(DAILY_FILE) as f:
+                DAILY.update(json.load(f))
+        except Exception as e:
+            print("daily load error:", e)
+
+load_data()
