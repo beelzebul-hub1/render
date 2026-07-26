@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Points Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -105,12 +104,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 /* PILLS */
 .pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px}
 .pill{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);border-radius:20px;padding:4px 10px 4px 7px;cursor:pointer;transition:all 0.12s;font-size:11px}
-.platform-section{margin-bottom:28px}
+.platform-section{margin-bottom:28px;min-width:0}
+.platform-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media (max-width:900px){.platform-columns{grid-template-columns:1fr}}
 .platform-section-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;margin-bottom:10px;border-left:3px solid transparent}
 .platform-section-hdr.platform-twitch{background:rgba(145,71,255,0.08);border-left-color:#9147ff}
 .platform-section-hdr.platform-kick{background:rgba(83,252,25,0.08);border-left-color:#53fc19}
 .platform-section-title{font-size:14px;font-weight:700}
 .platform-section-sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.platform-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;padding:2px 7px;border-radius:20px;margin-left:8px;vertical-align:middle}
+.platform-badge.platform-twitch{background:rgba(145,71,255,0.15);color:#b98fff}
+.platform-badge.platform-kick{background:rgba(83,252,25,0.15);color:#7dfa4d}
 .pill:hover{border-color:var(--b3);background:var(--s3)}
 .pill-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .pill-dot.on{background:var(--green);box-shadow:0 0 5px var(--green)}
@@ -169,8 +173,7 @@ tbody tr.pinned-row td{background:rgba(145,71,255,0.03)}
 .ch-right{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
 .ch-pts{font-size:11px;font-family:var(--mono);font-weight:600;color:var(--green);white-space:nowrap}
 .ch-peak{font-size:9px;color:var(--muted)}
-.ch-goal-bar{height:2px;background:var(--b2);border-radius:1px;margin-top:2px;width:60px;overflow:hidden}
-.ch-goal-fill{height:100%;background:var(--purple);border-radius:1px;transition:width 0.5s}
+
 
 /* compact mode */
 body.compact .ch-cell{padding:4px 12px}
@@ -240,34 +243,6 @@ body.compact .acc-name{font-size:11px}
 .log-ev{font-weight:600}
 .log-t{color:var(--muted);margin-left:auto;font-family:var(--mono);font-size:10px}
 
-/* GRAPH TAB */
-.graph-layout{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start}
-.graph-sidebar{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);overflow:hidden}
-.graph-sidebar-hdr{padding:10px 12px;border-bottom:1px solid var(--b1);font-size:11px;font-weight:600;color:var(--muted2)}
-.graph-acc-list{max-height:500px;overflow-y:auto}
-.graph-acc-item{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;transition:all 0.12s;border-bottom:1px solid var(--b1);font-size:11px}
-.graph-acc-item:last-child{border-bottom:none}
-.graph-acc-item:hover{background:var(--s3)}
-.graph-acc-item.active{background:var(--pglow);color:var(--purple)}
-.graph-acc-item .acc-n{font-family:var(--mono);font-weight:600;flex:1;font-size:11px}
-.graph-acc-item .acc-p{font-family:var(--mono);font-size:10px;color:var(--muted2)}
-.graph-main{display:flex;flex-direction:column;gap:12px}
-.graph-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.gctrl-group{display:flex;gap:3px}
-.gctrl-btn{padding:5px 10px;font-size:11px;font-weight:500;color:var(--muted);background:var(--s2);border:1px solid var(--b1);border-radius:5px;cursor:pointer;transition:all 0.12s}
-.gctrl-btn:hover{color:var(--text)}
-.gctrl-btn.active{color:var(--purple);border-color:var(--purple3);background:var(--pglow)}
-.graph-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);padding:16px}
-.graph-card-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-.graph-acc-title{font-size:13px;font-weight:700;font-family:var(--mono)}
-.graph-chip{font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px}
-.gchip-pos{background:var(--gdim);color:var(--green)}
-.gchip-neg{background:var(--rdim);color:var(--red)}
-.gchip-neu{background:var(--s4);color:var(--muted)}
-.graph-uptime{font-size:10px;color:var(--muted);margin-left:auto}
-.graph-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--muted);font-size:12px;gap:8px;border:1px solid var(--b1);border-radius:var(--r2);background:var(--s1)}
-.graph-placeholder svg{width:32px;height:32px;opacity:0.2}
-
 /* LEADERBOARD */
 .lb-list{display:flex;flex-direction:column;gap:6px}
 .lb-item{display:flex;align-items:center;gap:12px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 14px;transition:all 0.12s}
@@ -280,43 +255,6 @@ body.compact .acc-name{font-size:11px}
 .lb-bar-wrap{flex:2;height:6px;background:var(--b2);border-radius:3px;overflow:hidden}
 .lb-bar{height:100%;background:linear-gradient(90deg,var(--purple2),var(--purple));border-radius:3px;transition:width 0.6s}
 .lb-pts{font-size:12px;font-family:var(--mono);font-weight:700;color:var(--green);width:60px;text-align:right}
-
-/* ACTIVITY FEED */
-.feed-list{display:flex;flex-direction:column;gap:4px}
-.feed-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);font-size:11px;transition:all 0.12s}
-.feed-item:hover{border-color:var(--b2)}
-.feed-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.feed-dot.on{background:var(--green)}
-.feed-dot.off{background:var(--red)}
-.feed-text{flex:1;color:var(--text2)}
-.feed-text strong{color:var(--text)}
-.feed-time{color:var(--muted);font-family:var(--mono);font-size:10px}
-
-/* GOALS */
-.goals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:12px}
-.goal-card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:12px 14px}
-.goal-hdr{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.goal-name{font-size:11px;font-weight:600;font-family:var(--mono);flex:1}
-.goal-ch{font-size:10px;color:var(--muted2)}
-.goal-prog-bar{height:6px;background:var(--b2);border-radius:3px;overflow:hidden;margin-bottom:6px}
-.goal-prog-fill{height:100%;background:linear-gradient(90deg,var(--purple3),var(--purple));border-radius:3px;transition:width 0.5s}
-.goal-prog-fill.done{background:linear-gradient(90deg,#059669,var(--green))}
-.goal-meta{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
-.goal-pct{font-weight:700;color:var(--purple)}
-.goal-pct.done{color:var(--green)}
-
-/* HEATMAP */
-.heatmap-wrap{overflow-x:auto;margin-top:12px}
-.heatmap{display:flex;gap:3px}
-.heatmap-col{display:flex;flex-direction:column;gap:3px}
-.heatmap-cell{width:12px;height:12px;border-radius:2px;background:var(--b1);cursor:pointer;transition:transform 0.1s;position:relative}
-.heatmap-cell:hover{transform:scale(1.3);z-index:1}
-.heatmap-cell.l1{background:#2d1d5e}
-.heatmap-cell.l2{background:#4c2d8e}
-.heatmap-cell.l3{background:#6d3fc7}
-.heatmap-cell.l4{background:var(--purple)}
-.heatmap-legend{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--muted)}
-.heatmap-legend-cells{display:flex;gap:3px}
 
 /* NOTIFICATION TOAST */
 .toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
@@ -423,20 +361,6 @@ body.compact .acc-name{font-size:11px}
   </div>
 </div>
 
-<!-- GOAL MODAL -->
-<div class="modal-overlay" id="goalModal">
-  <div class="modal">
-    <div class="modal-title">Set Points Goal</div>
-    <input type="text" id="goalAccInput" placeholder="Account name" readonly style="color:var(--muted2)"/>
-    <input type="text" id="goalChInput" placeholder="Channel name"/>
-    <input type="number" id="goalTargetInput" placeholder="Target points (e.g. 100000)"/>
-    <div class="modal-actions">
-      <div class="btn btn-ghost" onclick="closeGoalModal()">Cancel</div>
-      <div class="btn btn-purple" onclick="confirmGoal()">Set Goal</div>
-    </div>
-  </div>
-</div>
-
 <div class="app">
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -458,26 +382,9 @@ body.compact .acc-name{font-size:11px}
         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
         Streamers
       </div>
-      <div class="nav-item" onclick="nav('graph')" id="nav-graph">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
-        Graph
-      </div>
       <div class="nav-item" onclick="nav('leaderboard')" id="nav-leaderboard">
         <svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z"/></svg>
         Leaderboard
-      </div>
-      <div class="nav-label" style="margin-top:8px">Tools</div>
-      <div class="nav-item" onclick="nav('goals')" id="nav-goals">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-        Goals
-      </div>
-      <div class="nav-item" onclick="nav('activity')" id="nav-activity">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h4a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
-        Activity
-      </div>
-      <div class="nav-item" onclick="nav('heatmap')" id="nav-heatmap">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm9 4a1 1 0 10-2 0v6a1 1 0 102 0V7zm-3 2a1 1 0 10-2 0v4a1 1 0 102 0V9zm-3 3a1 1 0 10-2 0v1a1 1 0 102 0v-1z"/></svg>
-        Heatmap
       </div>
       <div class="nav-label" style="margin-top:8px">Control</div>
       <div class="nav-item" onclick="nav('botcontrol')" id="nav-botcontrol">
@@ -547,43 +454,45 @@ body.compact .acc-name{font-size:11px}
           <div class="refresh-txt" id="refreshLabel">—</div>
         </div>
 
-        <div class="platform-section">
-          <div class="platform-section-hdr platform-twitch">
-            <div class="platform-section-title">🟣 Twitch Accounts</div>
-            <div class="platform-section-sub" id="twitchAcctSubtotal">—</div>
+        <div class="platform-columns">
+          <div class="platform-section">
+            <div class="platform-section-hdr platform-twitch">
+              <div class="platform-section-title">🟣 Twitch <span class="platform-badge platform-twitch">Twitch</span></div>
+              <div class="platform-section-sub" id="twitchAcctSubtotal">—</div>
+            </div>
+            <div class="pills" id="streamerPillsTwitch"></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr>
+                  <th onclick="setSort('account')" data-sortkey="account">Account</th>
+                  <th>Channels</th>
+                  <th onclick="setSort('total')" data-sortkey="total">Total</th>
+                  <th onclick="setSort('status')" data-sortkey="status">Status</th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="accBodyTwitch"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
-          <div class="pills" id="streamerPillsTwitch"></div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th onclick="setSort('account')" data-sortkey="account">Account</th>
-                <th>Channels</th>
-                <th onclick="setSort('total')" data-sortkey="total">Total</th>
-                <th onclick="setSort('status')" data-sortkey="status">Status</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="accBodyTwitch"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
 
-        <div class="platform-section">
-          <div class="platform-section-hdr platform-kick">
-            <div class="platform-section-title">🟢 Kick Accounts</div>
-            <div class="platform-section-sub" id="kickAcctSubtotal">—</div>
-          </div>
-          <div class="pills" id="streamerPillsKick"></div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr>
-                <th onclick="setSort('account')" data-sortkey="account">Account</th>
-                <th>Channels</th>
-                <th onclick="setSort('total')" data-sortkey="total">Total</th>
-                <th onclick="setSort('status')" data-sortkey="status">Status</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="accBodyKick"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
-            </table>
+          <div class="platform-section">
+            <div class="platform-section-hdr platform-kick">
+              <div class="platform-section-title">🟢 Kick <span class="platform-badge platform-kick">Kick</span></div>
+              <div class="platform-section-sub" id="kickAcctSubtotal">—</div>
+            </div>
+            <div class="pills" id="streamerPillsKick"></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr>
+                  <th onclick="setSort('account')" data-sortkey="account">Account</th>
+                  <th>Channels</th>
+                  <th onclick="setSort('total')" data-sortkey="total">Total</th>
+                  <th onclick="setSort('status')" data-sortkey="status">Status</th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="accBodyKick"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -593,18 +502,20 @@ body.compact .acc-name{font-size:11px}
         <div id="streamerList">
           <div class="section-hdr"><div><div class="section-title">Streamers</div><div class="section-sub">All tracked streamers</div></div></div>
 
-          <div class="platform-section">
-            <div class="platform-section-hdr platform-twitch">
-              <div class="platform-section-title">🟣 Twitch Streamers</div>
+          <div class="platform-columns">
+            <div class="platform-section">
+              <div class="platform-section-hdr platform-twitch">
+                <div class="platform-section-title">🟣 Twitch Streamers <span class="platform-badge platform-twitch">Twitch</span></div>
+              </div>
+              <div class="pills" id="streamerPillsTwitch2"></div>
             </div>
-            <div class="pills" id="streamerPillsTwitch2"></div>
-          </div>
 
-          <div class="platform-section">
-            <div class="platform-section-hdr platform-kick">
-              <div class="platform-section-title">🟢 Kick Streamers</div>
+            <div class="platform-section">
+              <div class="platform-section-hdr platform-kick">
+                <div class="platform-section-title">🟢 Kick Streamers <span class="platform-badge platform-kick">Kick</span></div>
+              </div>
+              <div class="pills" id="streamerPillsKick2"></div>
             </div>
-            <div class="pills" id="streamerPillsKick2"></div>
           </div>
         </div>
         <div id="streamerDetail" style="display:none">
@@ -626,57 +537,11 @@ body.compact .acc-name{font-size:11px}
         </div>
       </div>
 
-      <!-- GRAPH -->
-      <div class="view" id="view-graph">
-        <div class="section-hdr"><div><div class="section-title">Graph</div><div class="section-sub">Points history per account</div></div></div>
-        <div class="graph-layout">
-          <div class="graph-sidebar">
-            <div class="graph-sidebar-hdr">
-              <input class="search" id="graphSearch" placeholder="Search…" oninput="renderGraphAccList()" style="width:100%;border:none;background:transparent;padding:0"/>
-            </div>
-            <div class="graph-acc-list" id="graphAccList"></div>
-          </div>
-          <div class="graph-main">
-            <div class="graph-controls">
-              <div class="gctrl-group">
-                <div class="gctrl-btn active" onclick="setTF(30,this)">30m</div>
-                <div class="gctrl-btn" onclick="setTF(60,this)">1h</div>
-                <div class="gctrl-btn" onclick="setTF(360,this)">6h</div>
-                <div class="gctrl-btn" onclick="setTF(9999,this)">All</div>
-              </div>
-              <div class="gctrl-group">
-                <div class="gctrl-btn active" onclick="setGV('history',this)">History</div>
-                <div class="gctrl-btn" onclick="setGV('daily',this)">Daily</div>
-              </div>
-            </div>
-            <div id="graphArea">
-              <div class="graph-placeholder"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>Select an account to view graph</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- LEADERBOARD -->
       <div class="view" id="view-leaderboard">
         <div class="section-hdr"><div><div class="section-title">Leaderboard</div><div class="section-sub">Ranked by total points</div></div></div>
         <div class="lb-list" id="lbList"></div>
       </div>
-
-      <!-- GOALS -->
-      <div class="view" id="view-goals">
-        <div class="section-hdr">
-          <div><div class="section-title">Goals</div><div class="section-sub">Points targets per channel</div></div>
-          <div class="section-actions"><div class="btn btn-purple" onclick="openGoalModal()">+ Add Goal</div></div>
-        </div>
-        <div class="goals-grid" id="goalsGrid"><div style="color:var(--muted);font-size:12px">No goals set yet. Click + Add Goal to create one.</div></div>
-      </div>
-
-      <!-- ACTIVITY -->
-      <div class="view" id="view-activity">
-        <div class="section-hdr"><div><div class="section-title">Activity Feed</div><div class="section-sub">Live streamer events</div></div></div>
-        <div class="feed-list" id="feedList"></div>
-      </div>
-
 
       <!-- BOT CONTROL -->
       <div class="view" id="view-botcontrol">
@@ -716,29 +581,14 @@ body.compact .acc-name{font-size:11px}
           </div>
         </div>
       </div>
-
-      <!-- HEATMAP -->
-      <div class="view" id="view-heatmap">
-        <div class="section-hdr">
-          <div><div class="section-title">Points Heatmap</div><div class="section-sub">Daily earnings calendar</div></div>
-          <div class="section-actions">
-            <select id="heatmapAccSel" onchange="renderHeatmap()" style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);color:var(--text);padding:5px 8px;font-size:11px;outline:none"></select>
-          </div>
-        </div>
-        <div class="heatmap-wrap" id="heatmapWrap"></div>
-        <div class="heatmap-legend">Less <div class="heatmap-legend-cells"><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell l4"></div></div> More</div>
-      </div>
     </div>
   </div>
 </div>
 
 <script>
 // ===================== STATE =====================
-let pointsData={}, peakData={}, uptimeData={}, deltaCache={}, dailyData={}, goalsData={}, nicknames={}, pinnedAccs=[], crashData={};
-let serverHistory={};
+let pointsData={}, peakData={}, uptimeData={}, deltaCache={}, nicknames={}, pinnedAccs=[], crashData={};
 let sortKey='total', sortDir=-1;
-let graphAccount=null, graphMinutes=30, graphView='history';
-let chartInstance=null;
 let deleteTarget=null, nickTarget=null;
 let prevLiveStreamers={};
 let isCompact=false;
@@ -789,9 +639,6 @@ function nav(page){
   document.getElementById('nav-'+page).classList.add('active');
   document.getElementById('view-'+page).classList.add('active');
   if(page==='leaderboard') renderLeaderboard();
-  if(page==='goals') renderGoals();
-  if(page==='activity') renderActivity();
-  if(page==='heatmap') renderHeatmap();
   if(page==='botcontrol') { loadBcRepos().then(()=>{ renderBcAccList(); }); }
 }
 
@@ -807,10 +654,7 @@ document.addEventListener('keydown',e=>{
   if(document.activeElement.tagName==='INPUT') return;
   if(e.key==='1') nav('accounts');
   else if(e.key==='2') nav('streamers');
-  else if(e.key==='3') nav('graph');
-  else if(e.key==='4') nav('leaderboard');
-  else if(e.key==='5') nav('goals');
-  else if(e.key==='6') nav('activity');
+  else if(e.key==='3') nav('leaderboard');
   else if(e.key==='c') toggleCompact();
 });
 
@@ -831,14 +675,14 @@ if(Notification.permission==='default') Notification.requestPermission();
 // ===================== LOAD =====================
 async function load(){
   try{
-    const [pr,pkr,ur,sr,dr,gr,nr,pinr,cr]=await Promise.all([
+    const [pr,pkr,ur,sr,nr,pinr,cr]=await Promise.all([
       fetch('/api/points'),fetch('/api/peak'),fetch('/api/uptime'),
-      fetch('/api/stats'),fetch('/api/daily'),fetch('/api/goals'),
+      fetch('/api/stats'),
       fetch('/api/nicknames'),fetch('/api/pinned'),fetch('/api/crash-count')
     ]);
     pointsData=await pr.json(); peakData=await pkr.json();
-    uptimeData=await ur.json(); dailyData=await dr.json();
-    goalsData=await gr.json(); nicknames=await nr.json();
+    uptimeData=await ur.json();
+    nicknames=await nr.json();
     pinnedAccs=await pinr.json(); crashData=await cr.json();
     const stats=await sr.json();
 
@@ -859,11 +703,6 @@ async function load(){
     Object.keys(pointsData).forEach(acc=>{
       fetch(`/api/delta/${acc}`).then(r=>r.json()).then(d=>{deltaCache[acc]=d;}).catch(()=>{});
     });
-
-    // refresh graph
-    if(graphAccount){
-      fetch(`/api/history/${graphAccount}`).then(r=>r.json()).then(h=>{serverHistory[graphAccount]=h;renderGraph();}).catch(()=>{});
-    }
 
     checkLiveNotifs();
     renderAll();
@@ -903,11 +742,8 @@ function renderAll(){
   renderPillsForPlatform('streamerPillsKick','kick',false);
   renderPillsForPlatform('streamerPillsTwitch2','twitch',true);
   renderPillsForPlatform('streamerPillsKick2','kick',true);
-  renderGraphAccList();
   checkAlerts();
   if(document.getElementById('view-leaderboard').classList.contains('active')) renderLeaderboard();
-  if(document.getElementById('view-goals').classList.contains('active')) renderGoals();
-  if(document.getElementById('view-activity').classList.contains('active')) renderActivity();
 }
 
 function checkAlerts(){
@@ -1004,7 +840,6 @@ function buildAccountRow(account,info,now){
     const nick=nicknames[account];
     const crashes=crashData[account]||0;
     const isPinned=pinnedAccs.includes(account);
-    const accGoals=goalsData[account]||{};
 
     const uptimeStr=uptime?`Running ${fmtUp(uptime.uptime_seconds)}`:'';
     let deltaHTML='';
@@ -1015,11 +850,9 @@ function buildAccountRow(account,info,now){
       :channels.map(([name,pts])=>{
           const peak=peaks[name];
           const peakHTML=peak&&peak>pts?`<div class="ch-peak">peak ${fmt(peak)}</div>`:'';
-          const goal=accGoals[name];
-          const goalBar=goal?`<div class="ch-goal-bar"><div class="ch-goal-fill" style="width:${Math.min(100,Math.round(pts/goal*100))}%"></div></div>`:'';
           return `<div class="ch-row">
             <div class="ch-left"><div class="ch-dot ${statuses[name]?'on':'off'}"></div><span class="ch-name">${name}</span></div>
-            <div class="ch-right"><span class="ch-pts">${fmt(pts)}</span>${peakHTML}${goalBar}</div>
+            <div class="ch-right"><span class="ch-pts">${fmt(pts)}</span>${peakHTML}</div>
           </div>`;
         }).join('');
 
@@ -1052,9 +885,6 @@ function buildAccountRow(account,info,now){
       <td class="row-actions">
         <div class="icon-btn ${isPinned?'pin-active':''}" onclick="togglePin('${account}')" title="Pin">
           <svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v7.5l1.5 1.5v1H11v4l-1 1-1-1v-4H4.5v-1L6 11.5V4z"/></svg>
-        </div>
-        <div class="icon-btn" onclick="openGoalModalAcc('${account}')" title="Set Goal">
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
         </div>
         <div class="icon-btn del" onclick="openDeleteModal('${account}')" title="Delete">
           <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
@@ -1099,73 +929,6 @@ function closeDetail(){
   document.getElementById('streamerDetail').style.display='none';
 }
 
-// ===================== GRAPH =====================
-function renderGraphAccList(){
-  const el=document.getElementById('graphAccList');
-  const search=document.getElementById('graphSearch').value.toLowerCase();
-  const accs=Object.entries(pointsData)
-    .filter(([a])=>a.toLowerCase().includes(search))
-    .sort(([,a],[,b])=>{const ta=Object.values(a.channels||{}).reduce((s,v)=>s+v,0),tb=Object.values(b.channels||{}).reduce((s,v)=>s+v,0);return tb-ta;});
-  el.innerHTML=accs.map(([acc,info])=>{
-    const total=Object.values(info.channels||{}).reduce((s,v)=>s+v,0);
-    return `<div class="graph-acc-item ${acc===graphAccount?'active':''}" onclick="selectGraphAcc('${acc}')"><span class="acc-n">${acc}</span><span class="acc-p">${fmt(total)}</span></div>`;
-  }).join('');
-}
-
-async function selectGraphAcc(acc){
-  graphAccount=acc;
-  renderGraphAccList();
-  try{const h=await fetch(`/api/history/${acc}`).then(r=>r.json());serverHistory[acc]=h;}catch(e){}
-  renderGraph();
-}
-
-function setTF(mins,el){graphMinutes=mins;document.querySelectorAll('.gctrl-group:first-child .gctrl-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');if(graphAccount)renderGraph();}
-function setGV(v,el){graphView=v;document.querySelectorAll('.gctrl-group:last-child .gctrl-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');if(graphAccount)renderGraph();}
-
-function renderGraph(){
-  const area=document.getElementById('graphArea');
-  if(!graphAccount){area.innerHTML=`<div class="graph-placeholder"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>Select an account</div>`;return;}
-  if(graphView==='daily'){renderDailyGraph(area);return;}
-
-  const snaps=serverHistory[graphAccount]||[];
-  if(!snaps.length){area.innerHTML=`<div class="graph-placeholder">No history yet</div>`;return;}
-  const now=Date.now();
-  const cutoff=graphMinutes===9999?0:now-(graphMinutes*60*1000);
-  const filtered=snaps.filter(s=>s.ts>=cutoff);
-  if(filtered.length<2){area.innerHTML=`<div class="graph-placeholder">Not enough data in this range</div>`;return;}
-
-  const labels=filtered.map(s=>new Date(s.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
-  const values=filtered.map(s=>Object.values(s.channels||{}).reduce((a,b)=>a+b,0));
-  const delta=values[values.length-1]-values[0];
-  const dc=delta>0?'gchip-pos':delta<0?'gchip-neg':'gchip-neu';
-  const uptime=uptimeData[graphAccount];
-  const uptimeStr=uptime?`Running ${fmtUp(uptime.uptime_seconds)}`:'';
-
-  area.innerHTML=`<div class="graph-card"><div class="graph-card-hdr"><div class="graph-acc-title">${graphAccount}</div><div class="graph-chip ${dc}">${delta>=0?'+':''}${fmt(Math.abs(delta))} pts</div>${uptimeStr?`<div class="graph-uptime">${uptimeStr}</div>`:''}</div><canvas id="ptChart" height="200"></canvas></div>`;
-  if(chartInstance)chartInstance.destroy();
-  const ctx=document.getElementById('ptChart').getContext('2d');
-  chartInstance=new Chart(ctx,{
-    type:'line',
-    data:{labels,datasets:[{label:'Points',data:values,borderColor:'#9147ff',backgroundColor:'rgba(145,71,255,0.06)',borderWidth:2,pointRadius:filtered.length>60?0:2,pointHoverRadius:4,pointBackgroundColor:'#9147ff',tension:0.35,fill:true}]},
-    options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'#13131d',borderColor:'#252538',borderWidth:1,titleColor:'#f1f0f8',bodyColor:'#7878a0',callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString()} pts`}}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#5a5a78',font:{size:9},maxTicksLimit:8}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#5a5a78',font:{size:9},callback:v=>fmt(v)}}}}
-  });
-}
-
-function renderDailyGraph(area){
-  const dates=Object.keys(dailyData).sort();
-  if(!dates.length){area.innerHTML=`<div class="graph-placeholder">No daily snapshots yet</div>`;return;}
-  const values=dates.map(d=>{const a=dailyData[d][graphAccount];return a?Object.values(a).reduce((s,v)=>s+v,0):0;});
-  const gains=values.map((v,i)=>i===0?0:Math.max(0,v-values[i-1]));
-  area.innerHTML=`<div class="graph-card"><div class="graph-card-hdr"><div class="graph-acc-title">${graphAccount}</div><div class="graph-chip gchip-pos">Daily Earned</div></div><canvas id="ptChart" height="200"></canvas></div>`;
-  if(chartInstance)chartInstance.destroy();
-  const ctx=document.getElementById('ptChart').getContext('2d');
-  chartInstance=new Chart(ctx,{
-    type:'bar',
-    data:{labels:dates,datasets:[{label:'Earned',data:gains,backgroundColor:'rgba(145,71,255,0.4)',borderColor:'#9147ff',borderWidth:1,borderRadius:4}]},
-    options:{responsive:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#13131d',borderColor:'#252538',borderWidth:1,titleColor:'#f1f0f8',bodyColor:'#7878a0',callbacks:{label:ctx=>`+${ctx.parsed.y.toLocaleString()} pts`}}},scales:{x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#5a5a78',font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#5a5a78',font:{size:9},callback:v=>fmt(v)}}}}
-  });
-}
-
 // ===================== LEADERBOARD =====================
 function renderLeaderboard(){
   const el=document.getElementById('lbList');
@@ -1187,88 +950,6 @@ function renderLeaderboard(){
   }).join('');
 }
 
-// ===================== GOALS =====================
-function renderGoals(){
-  const el=document.getElementById('goalsGrid');
-  const cards=[];
-  Object.entries(goalsData).forEach(([acc,channels])=>{
-    Object.entries(channels).forEach(([ch,target])=>{
-      const current=(pointsData[acc]?.channels||{})[ch]||0;
-      const pct=Math.min(100,Math.round(current/target*100));
-      const done=pct>=100;
-      cards.push(`<div class="goal-card">
-        <div class="goal-hdr"><div class="goal-name">${acc}</div><div class="goal-ch">${ch}</div>
-          <div class="icon-btn del" onclick="deleteGoal('${acc}','${ch}')" style="margin-left:auto"><svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></div>
-        </div>
-        <div class="goal-prog-bar"><div class="goal-prog-fill ${done?'done':''}" style="width:${pct}%"></div></div>
-        <div class="goal-meta"><span>${fmt(current)} / ${fmt(target)}</span><span class="goal-pct ${done?'done':''}">${pct}%${done?' ✓':''}</span></div>
-      </div>`);
-    });
-  });
-  el.innerHTML=cards.length?cards.join(''):`<div style="color:var(--muted);font-size:12px">No goals set yet. Click + Add Goal to create one.</div>`;
-}
-
-async function deleteGoal(acc,ch){
-  await fetch(`/api/goals/${acc}/${ch}`,{method:'DELETE'});
-  goalsData=await fetch('/api/goals').then(r=>r.json());
-  renderGoals();
-}
-
-// ===================== ACTIVITY FEED =====================
-async function renderActivity(){
-  try{
-    const events=await fetch('/api/activity').then(r=>r.json());
-    const el=document.getElementById('feedList');
-    if(!events.length){el.innerHTML=`<div style="color:var(--muted);font-size:12px">No events yet</div>`;return;}
-    el.innerHTML=events.map(e=>`<div class="feed-item"><div class="feed-dot ${e.event==='online'?'on':'off'}"></div><div class="feed-text"><strong>${e.streamer}</strong> ${e.event==='online'?'went live':'went offline'}</div><div class="feed-time">${fmtAgo(e.ts)}</div></div>`).join('');
-  }catch(e){}
-}
-
-// ===================== HEATMAP =====================
-function renderHeatmap(){
-  const sel=document.getElementById('heatmapAccSel');
-  const accs=Object.keys(pointsData);
-  if(!sel.options.length){accs.forEach(a=>{const o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});}
-  const acc=sel.value||accs[0];
-  const wrap=document.getElementById('heatmapWrap');
-  const dates=Object.keys(dailyData).sort();
-  if(!dates.length){wrap.innerHTML=`<div style="color:var(--muted);font-size:12px;margin-top:8px">No daily snapshots yet — first one at midnight</div>`;return;}
-
-  // build map: date->total
-  const map={};
-  let maxVal=0;
-  dates.forEach(d=>{
-    const a=dailyData[d][acc];
-    const v=a?Object.values(a).reduce((s,v)=>s+v,0):0;
-    // try to find gain (vs day before)
-    const di=dates.indexOf(d);
-    const prev=di>0?dailyData[dates[di-1]]?.[acc]:null;
-    const prevTotal=prev?Object.values(prev).reduce((s,v)=>s+v,0):0;
-    const gain=Math.max(0,v-prevTotal);
-    map[d]=gain;
-    if(gain>maxVal)maxVal=gain;
-  });
-
-  // group by week
-  const startDate=new Date(dates[0]);
-  const endDate=new Date(dates[dates.length-1]);
-  const cols=[];
-  let cur=new Date(startDate);
-  cur.setDate(cur.getDate()-cur.getDay()); // start of week
-  while(cur<=endDate){
-    const col=[];
-    for(let d=0;d<7;d++){
-      const ds=cur.toISOString().slice(0,10);
-      const val=map[ds]||0;
-      const l=maxVal===0?0:val/maxVal<0.25?1:val/maxVal<0.5?2:val/maxVal<0.75?3:4;
-      col.push(`<div class="heatmap-cell ${val>0?'l'+l:''}" title="${ds}: +${fmt(val)} pts"></div>`);
-      cur.setDate(cur.getDate()+1);
-    }
-    cols.push(`<div class="heatmap-col">${col.join('')}</div>`);
-  }
-  wrap.innerHTML=`<div class="heatmap">${cols.join('')}</div>`;
-}
-
 // ===================== MODALS =====================
 function openDeleteModal(acc){deleteTarget=acc;document.getElementById('deleteModalSub').textContent=`This will permanently delete all data for "${acc}" including history, peaks, and uptime. This cannot be undone.`;document.getElementById('deleteModal').classList.add('open');}
 function closeDeleteModal(){document.getElementById('deleteModal').classList.remove('open');deleteTarget=null;}
@@ -1287,20 +968,6 @@ async function confirmNick(){
   nicknames=await fetch('/api/nicknames').then(r=>r.json());
   closeNickModal();
   renderAccounts();
-}
-
-function openGoalModal(){document.getElementById('goalModal').classList.add('open');}
-function openGoalModalAcc(acc){document.getElementById('goalAccInput').value=acc;document.getElementById('goalModal').classList.add('open');}
-function closeGoalModal(){document.getElementById('goalModal').classList.remove('open');}
-async function confirmGoal(){
-  const acc=document.getElementById('goalAccInput').value;
-  const ch=document.getElementById('goalChInput').value;
-  const target=document.getElementById('goalTargetInput').value;
-  if(!acc||!ch||!target)return;
-  await fetch('/api/goals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account:acc,channel:ch,target:parseInt(target)})});
-  goalsData=await fetch('/api/goals').then(r=>r.json());
-  closeGoalModal();
-  renderGoals();
 }
 
 // ===================== PIN =====================
