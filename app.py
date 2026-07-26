@@ -474,7 +474,7 @@ def mass_update():
 def patch_code(account):
     """
     Patch specific settings in main.py without touching the rest of the code.
-    Supports: streamers list, greet_streamer, greet_message
+    Supports: streamers list (max 3, priority order)
     """
     cfg = GITHUB_REPOS.get(account)
     if not cfg:
@@ -486,31 +486,15 @@ def patch_code(account):
 
     original = content
 
-    # Patch streamers list
+    # Patch streamers list (max 3, in priority order)
     if "streamers" in data:
-        streamers = data["streamers"]
+        streamers = [s for s in data["streamers"] if s][:3]
         streamer_lines = ",\n        ".join([f'Streamer("{s}")' for s in streamers])
         new_block = f'[\n        {streamer_lines},\n    ]'
         content = re.sub(
             r'twitch_miner\.mine\(\s*\[.*?\]',
             f'twitch_miner.mine({new_block}',
             content, flags=re.DOTALL
-        )
-
-    # Patch GREET_STREAMER
-    if "greet_streamer" in data:
-        content = re.sub(
-            r'GREET_STREAMER\s*=\s*"[^"]*"',
-            f'GREET_STREAMER = "{data["greet_streamer"]}"',
-            content
-        )
-
-    # Patch GREET_MESSAGE
-    if "greet_message" in data:
-        content = re.sub(
-            r'GREET_MESSAGE\s*=\s*"[^"]*"',
-            f'GREET_MESSAGE  = "{data["greet_message"]}"',
-            content
         )
 
     if content == original:
