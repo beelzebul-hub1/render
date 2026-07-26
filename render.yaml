@@ -7,3 +7,11 @@ services:
     envVars:
       - key: RENDER_API_KEYS
         sync: false
+      # Dedicated private GitHub repo used to back up all dashboard state
+      # (linked repos/tokens, points history, error/offline logs, etc.) so
+      # it survives restarts and redeploys on Render's free tier, which has
+      # no persistent disk. Set these in the Render dashboard.
+      - key: STATE_GITHUB_REPO
+        sync: false   # e.g. yourname/dashboard-state
+      - key: STATE_GITHUB_TOKEN
+        sync: false   # a GitHub personal access token with "repo" scope
