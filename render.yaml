@@ -5,6 +5,8 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
       - key: RENDER_API_KEYS
         sync: false
       # Dedicated private GitHub repo used to back up all dashboard state
