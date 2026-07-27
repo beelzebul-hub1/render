@@ -315,6 +315,28 @@ body.compact .acc-name{font-size:11px}
 .bc-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--muted);font-size:12px;gap:8px}
 .bc-placeholder svg{width:32px;height:32px;opacity:0.2}
 
+/* ROLLBACK / COMMIT HISTORY */
+.bc-commit-list{display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto;margin-bottom:10px}
+.bc-commit-row{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--r);cursor:pointer;transition:all 0.12s}
+.bc-commit-row:hover{border-color:var(--purple3);background:var(--pglow)}
+.bc-commit-row.selected{border-color:var(--purple);background:var(--pglow)}
+.bc-commit-sha{font-family:var(--mono);font-size:10px;color:var(--purple);flex-shrink:0;margin-top:1px;width:52px}
+.bc-commit-info{flex:1;min-width:0}
+.bc-commit-msg{font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bc-commit-meta{font-size:10px;color:var(--muted);margin-top:2px}
+.bc-commit-pick{flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:var(--purple2);color:white;opacity:0;transition:opacity 0.12s}
+.bc-commit-row:hover .bc-commit-pick{opacity:1}
+.bc-commit-row.selected .bc-commit-pick{opacity:1;background:var(--green)}
+
+/* MASS UPDATE ACCOUNT PICKER */
+.mass-acc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px;margin-bottom:10px;max-height:160px;overflow-y:auto;padding:2px}
+.mass-acc-chip{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:var(--r);border:1px solid var(--b2);background:var(--s3);cursor:pointer;transition:all 0.12s;font-size:11px;font-family:var(--mono);font-weight:600;user-select:none}
+.mass-acc-chip:hover{border-color:var(--b3)}
+.mass-acc-chip.checked{border-color:var(--purple);background:var(--pglow);color:var(--purple)}
+.mass-acc-chip input[type=checkbox]{accent-color:var(--purple);width:12px;height:12px;flex-shrink:0}
+.mass-sel-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px;color:var(--muted2)}
+.mass-sel-bar b{color:var(--text)}
+
 /* GITHUB TOKEN BANNER */
 .gh-token-banner{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r2);padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .gh-token-label{font-size:11px;font-weight:700;color:var(--muted2);white-space:nowrap;display:flex;align-items:center;gap:6px}
@@ -1327,20 +1349,22 @@ async function ghAutoLink() {
       return;
     }
 
-    // Auto-link each match
+    // Bulk-link all matches in one request so we only save_data() once
     let ok = 0, fail = 0;
     st.textContent = `Linking ${matches.length} account${matches.length > 1 ? 's' : ''}…`;
-    for (const { acc, fullName } of matches) {
-      try {
-        const r = await fetch('/api/github/link', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ account: acc, repo: fullName, token, file: 'main.py' })
-        });
-        const d = await r.json();
-        if (d.ok) ok++; else fail++;
-      } catch(e) { fail++; }
-    }
+    try {
+      const entries = matches.map(({ acc, fullName }) => ({ account: acc, repo: fullName, token, file: 'main.py' }));
+      const r = await fetch('/api/github/bulk-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        ok = Object.values(d.results).filter(v => v === 'ok').length;
+        fail = Object.values(d.results).filter(v => v !== 'ok').length;
+      } else { fail = matches.length; }
+    } catch(e) { fail = matches.length; }
 
     await loadBcRepos();
     renderBcAccList();
