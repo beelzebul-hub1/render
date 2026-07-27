@@ -411,6 +411,31 @@ def unlink_github_repo(account):
     save_data()
     return jsonify({"ok": True})
 
+@app.route("/api/github/bulk-link", methods=["POST"])
+def bulk_link_github_repos():
+    """Link multiple repos at once and save only once — avoids race conditions from auto-link."""
+    data = request.json
+    entries = data.get("entries", [])  # [{account, repo, token, file}]
+    if not entries:
+        return jsonify({"error": "no entries"}), 400
+    results = {}
+    for entry in entries:
+        account = entry.get("account")
+        repo    = entry.get("repo")
+        token   = entry.get("token")
+        file    = entry.get("file", "main.py")
+        if not all([account, repo, token]):
+            results[account or "?"] = "missing fields"
+            continue
+        repo = normalize_repo(repo)
+        if repo.count("/") != 1:
+            results[account] = "bad repo format"
+            continue
+        GITHUB_REPOS[account] = {"repo": repo, "token": token, "file": file}
+        results[account] = "ok"
+    save_data()  # single save for all
+    return jsonify({"ok": True, "results": results})
+
 def gh_get_file(cfg):
     """Fetch current file content + sha from GitHub."""
     repo  = cfg["repo"]
