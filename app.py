@@ -584,21 +584,29 @@ def push_code(account):
 
 @app.route("/api/github/mass-update", methods=["POST"])
 def mass_update():
+    from concurrent.futures import ThreadPoolExecutor
     data = request.json
     new_content = data.get("content")
-    accounts    = data.get("accounts", [])  # empty = all linked
+    accounts    = data.get("accounts", [])
     message     = data.get("message", "Mass update from dashboard")
     if not new_content:
         return jsonify({"error": "no content"}), 400
     targets = accounts if accounts else list(GITHUB_REPOS.keys())
-    results = {}
-    for acc in targets:
+
+    def push_one(acc):
         cfg = GITHUB_REPOS.get(acc)
         if not cfg:
-            results[acc] = "not linked"
-            continue
-        ok, err = gh_push_file(cfg, new_content, message)
-        results[acc] = "ok" if ok else err
+            return acc, "not linked"
+        try:
+            ok, err = gh_push_file(cfg, new_content, message)
+            return acc, "ok" if ok else (err or "unknown error")
+        except Exception as e:
+            return acc, "error: " + str(e)
+
+    results = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for acc, status in executor.map(push_one, targets):
+            results[acc] = status
     return jsonify({"results": results})
 
 @app.route("/api/github/patch/<account>", methods=["POST"])
