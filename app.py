@@ -167,7 +167,13 @@ def gh_state_push(payload):
         STATE_BACKUP_STATUS["last_push_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
         STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
         return
-    is_blank = not payload.get("points_cache") and not payload.get("github_repos")
+    # Only block if everything is genuinely empty (nothing loaded yet at all)
+    is_blank = (
+        len(payload.get("points_cache") or {}) == 0 and
+        len(payload.get("github_repos") or {}) == 0 and
+        len(payload.get("nicknames") or {}) == 0 and
+        len(payload.get("pinned") or []) == 0
+    )
     if is_blank:
         existing = gh_state_pull()
         if existing and (existing.get("points_cache") or existing.get("github_repos")):
@@ -287,6 +293,8 @@ def midnight_snapshot():
 
 # Single load on startup, threads start after
 load_data()
+# Immediately push whatever we loaded so the backup is always fresh after a redeploy
+threading.Thread(target=save_data, daemon=True).start()
 threading.Thread(target=periodic_save, daemon=True).start()
 threading.Thread(target=midnight_snapshot, daemon=True).start()
 
