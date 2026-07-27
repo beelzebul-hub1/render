@@ -17,14 +17,10 @@ DAILY_FILE    = os.environ.get("DAILY_FILE", "daily.json")
 MAX_HISTORY   = int(os.environ.get("MAX_HISTORY", "500"))
 SAVE_INTERVAL = int(os.environ.get("SAVE_INTERVAL", "60"))
 
-STATE_GITHUB_REPO  = os.environ.get("STATE_GITHUB_REPO")   # "owner/reponame"
-STATE_GITHUB_TOKEN = os.environ.get("STATE_GITHUB_TOKEN")  # PAT with repo scope
+STATE_GITHUB_REPO  = os.environ.get("STATE_GITHUB_REPO")
+STATE_GITHUB_TOKEN = os.environ.get("STATE_GITHUB_TOKEN")
 STATE_GITHUB_FILE  = os.environ.get("STATE_GITHUB_FILE", "dashboard_state.json")
 
-# Key used to obscure GitHub PATs before they're written into the backup file.
-# GitHub's push-protection secret scanner blocks commits containing anything
-# that looks like a real token, so raw tokens can never go into that repo.
-# Falls back to STATE_GITHUB_TOKEN itself as key material (never written out).
 STATE_ENCRYPT_KEY = os.environ.get("STATE_ENCRYPT_KEY") or STATE_GITHUB_TOKEN or "twitch-dashboard-default-key"
 
 def _xor_cipher(data: bytes, key: str) -> bytes:
@@ -38,7 +34,7 @@ def encrypt_token(plain: str) -> str:
 
 def decrypt_token(value: str) -> str:
     if not value or not value.startswith("enc:"):
-        return value  # not encrypted (e.g. old local data.json) - use as-is
+        return value
     try:
         raw = base64.b64decode(value[4:].encode("ascii"))
         return _xor_cipher(raw, STATE_ENCRYPT_KEY).decode("utf-8")
@@ -53,32 +49,172 @@ PEAK         = {}
 STREAMER_LOG = {}
 UPTIME       = {}
 CRASH_COUNT  = {}
-SILENCE_LOG  = {}   # { account -> [{start, end, duration}] }
-NICKNAMES    = {}   # { account -> nickname }
+SILENCE_LOG  = {}
+NICKNAMES    = {}
 PINNED       = set()
-EVENT_LOG    = []   # [{ts, account, streamer, delta, total, label}] - most recent last
+EVENT_LOG    = []
 MAX_EVENT_LOG = 500
 _prev_status = {}
-_silence_start = {}  # account -> ts when it went silent
+_silence_start = {}
+GITHUB_REPOS = {}  # moved here so it exists before load_data/save_data
+
+STATE_BACKUP_STATUS = {
+    "last_push_ok": None,
+    "last_push_error": None,
+    "last_push_time": None,
+    "last_pull_ok": None,
+    "last_pull_error": None,
+    "last_pull_time": None,
+}
+
+# ============================================================
+# GITHUB HELPERS (needed by load_data/save_data)
+# ============================================================
+
+def normalize_repo(raw):
+    s = raw.strip()
+    s = re.sub(r"^(https?://)?(www\.)?github\.com/", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\.git$", "", s, flags=re.IGNORECASE)
+    s = s.strip("/")
+    return s
+
+def gh_get_file(cfg):
+    repo  = cfg["repo"]
+    token = cfg["token"]
+    file  = cfg.get("file", "main.py")
+    url   = f"https://api.github.com/repos/{repo}/contents/{file}"
+    try:
+        r = requests.get(url, headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"
+        }, timeout=10)
+    except requests.exceptions.RequestException as e:
+        return None, None, f"Network error contacting GitHub: {e}"
+    try:
+        j = r.json()
+    except ValueError:
+        return None, None, f"GitHub returned a non-JSON response (status {r.status_code})"
+    if r.status_code != 200:
+        return None, None, j.get("message", f"GitHub error (status {r.status_code})")
+    if isinstance(j, list):
+        return None, None, f"'{file}' is a directory, not a file"
+    if "content" not in j:
+        return None, None, f"Unexpected response from GitHub for '{file}'"
+    try:
+        content = base64.b64decode(j["content"]).decode("utf-8")
+    except Exception as e:
+        return None, None, f"Could not decode file content: {e}"
+    return content, j["sha"], None
+
+def gh_push_file(cfg, new_content, commit_message="Update bot config from dashboard"):
+    repo  = cfg["repo"]
+    token = cfg["token"]
+    file  = cfg.get("file", "main.py")
+    _, sha, err = gh_get_file(cfg)
+    _no_file_yet = ("not found", "is empty")
+    if err and not any(kw in err.lower() for kw in _no_file_yet):
+        return False, err
+    url = f"https://api.github.com/repos/{repo}/contents/{file}"
+    payload = {
+        "message": commit_message,
+        "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
+    }
+    if sha:
+        payload["sha"] = sha
+    try:
+        r = requests.put(url, json=payload, headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json"
+        }, timeout=15)
+    except requests.exceptions.RequestException as e:
+        return False, f"Network error contacting GitHub: {e}"
+    try:
+        j = r.json()
+    except ValueError:
+        j = {}
+    if r.status_code in (200, 201):
+        return True, None
+    return False, j.get("message", f"GitHub push failed (status {r.status_code})")
+
+def gh_state_pull():
+    if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
+        STATE_BACKUP_STATUS["last_pull_ok"] = False
+        STATE_BACKUP_STATUS["last_pull_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
+        STATE_BACKUP_STATUS["last_pull_time"] = datetime.now(timezone.utc).isoformat()
+        return None
+    cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
+    content, sha, err = gh_get_file(cfg)
+    STATE_BACKUP_STATUS["last_pull_time"] = datetime.now(timezone.utc).isoformat()
+    if err:
+        STATE_BACKUP_STATUS["last_pull_ok"] = False
+        STATE_BACKUP_STATUS["last_pull_error"] = err
+        print("state backup pull:", err)
+        return None
+    try:
+        parsed = json.loads(content)
+        STATE_BACKUP_STATUS["last_pull_ok"] = True
+        STATE_BACKUP_STATUS["last_pull_error"] = None
+        return parsed
+    except Exception as e:
+        STATE_BACKUP_STATUS["last_pull_ok"] = False
+        STATE_BACKUP_STATUS["last_pull_error"] = f"parse error: {e}"
+        print("state backup parse error:", e)
+        return None
+
+def gh_state_push(payload):
+    if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
+        STATE_BACKUP_STATUS["last_push_ok"] = False
+        STATE_BACKUP_STATUS["last_push_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
+        STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
+        return
+    is_blank = not payload.get("points_cache") and not payload.get("github_repos")
+    if is_blank:
+        existing = gh_state_pull()
+        if existing and (existing.get("points_cache") or existing.get("github_repos")):
+            msg = "skipped: refusing to overwrite a non-empty backup with a blank state"
+            STATE_BACKUP_STATUS["last_push_ok"] = False
+            STATE_BACKUP_STATUS["last_push_error"] = msg
+            STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
+            print("state backup push:", msg)
+            return
+    cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
+    ok, err = gh_push_file(cfg, json.dumps(payload), "Auto-backup dashboard state")
+    STATE_BACKUP_STATUS["last_push_ok"] = ok
+    STATE_BACKUP_STATUS["last_push_error"] = err
+    STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
+    if not ok:
+        print("state backup push:", err)
+
+# ============================================================
+# SAVE / LOAD  (single definition each, includes GITHUB_REPOS)
+# ============================================================
 
 def save_data():
+    payload = {
+        "points_cache": POINTS_CACHE,
+        "history": {a: list(s) for a,s in HISTORY.items()},
+        "peak": PEAK,
+        "streamer_log": STREAMER_LOG,
+        "uptime": UPTIME,
+        "crash_count": CRASH_COUNT,
+        "silence_log": SILENCE_LOG,
+        "nicknames": NICKNAMES,
+        "pinned": list(PINNED),
+        "event_log": EVENT_LOG[-MAX_EVENT_LOG:],
+        "github_repos": {
+            acc: {**cfg, "token": encrypt_token(cfg.get("token", ""))}
+            for acc, cfg in GITHUB_REPOS.items()
+        },
+    }
     try:
-        payload = {
-            "points_cache": POINTS_CACHE,
-            "history": {a: list(s) for a,s in HISTORY.items()},
-            "peak": PEAK,
-            "streamer_log": STREAMER_LOG,
-            "uptime": UPTIME,
-            "crash_count": CRASH_COUNT,
-            "silence_log": SILENCE_LOG,
-            "nicknames": NICKNAMES,
-            "pinned": list(PINNED),
-            "event_log": EVENT_LOG[-MAX_EVENT_LOG:],
-        }
         with open(DATA_FILE, "w") as f:
             json.dump(payload, f)
     except Exception as e:
-        print("save error:", e)
+        print("local save error:", e)
+    try:
+        gh_state_push(payload)
+    except Exception as e:
+        print("state backup push error:", e)
 
 def save_daily():
     try:
@@ -88,11 +224,24 @@ def save_daily():
         print("daily save error:", e)
 
 def load_data():
-    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,EVENT_LOG
-    if os.path.exists(DATA_FILE):
+    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,GITHUB_REPOS,EVENT_LOG
+    p = None
+    source = None
+    try:
+        p = gh_state_pull()
+        if p is not None:
+            source = "GitHub backup"
+    except Exception as e:
+        print("state backup pull error:", e)
+    if p is None and os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE) as f:
                 p = json.load(f)
+            source = "local disk"
+        except Exception as e:
+            print("local load error:", e)
+    if p:
+        try:
             POINTS_CACHE = p.get("points_cache", {})
             HISTORY      = {a: list(s) for a,s in p.get("history", {}).items()}
             PEAK         = p.get("peak", {})
@@ -101,11 +250,17 @@ def load_data():
             CRASH_COUNT  = p.get("crash_count", {})
             SILENCE_LOG  = p.get("silence_log", {})
             NICKNAMES    = p.get("nicknames", {})
-            EVENT_LOG    = p.get("event_log", [])
             PINNED       = set(p.get("pinned", []))
-            print(f"Loaded {len(POINTS_CACHE)} accounts")
+            EVENT_LOG    = p.get("event_log", [])
+            GITHUB_REPOS = {
+                acc: {**cfg, "token": decrypt_token(cfg.get("token", ""))}
+                for acc, cfg in p.get("github_repos", {}).items()
+            }
+            print(f"Loaded {len(POINTS_CACHE)} accounts, {len(GITHUB_REPOS)} linked repos from {source}")
         except Exception as e:
-            print("load error:", e)
+            print("load apply error:", e)
+    else:
+        print("No prior state found — starting fresh")
     if os.path.exists(DAILY_FILE):
         try:
             with open(DAILY_FILE) as f:
@@ -130,6 +285,7 @@ def midnight_snapshot():
         save_daily()
         print(f"Daily snapshot: {today}")
 
+# Single load on startup, threads start after
 load_data()
 threading.Thread(target=periodic_save, daemon=True).start()
 threading.Thread(target=midnight_snapshot, daemon=True).start()
@@ -146,16 +302,12 @@ def update():
     channels        = data.get("channels", {})
     updated         = data.get("updated")
     streamer_status = data.get("streamer_status", {})
-    platform        = data.get("platform", "twitch")  # "twitch" or "kick"
+    platform        = data.get("platform", "twitch")
     if not account: return jsonify({"error":"missing account"}),400
-
     now_ts = int(time.time())
     was_silent = account in _silence_start
-
     if account not in UPTIME:
         UPTIME[account] = now_ts
-
-    # track silence recovery
     if was_silent:
         start = _silence_start.pop(account)
         duration = now_ts - start
@@ -163,48 +315,32 @@ def update():
         SILENCE_LOG[account].append({"start":start,"end":now_ts,"duration":duration})
         if len(SILENCE_LOG[account]) > 100: SILENCE_LOG[account] = SILENCE_LOG[account][-100:]
         CRASH_COUNT[account] = CRASH_COUNT.get(account, 0) + 1
-
     prev_channels = POINTS_CACHE.get(account, {}).get("channels", {})
-
     POINTS_CACHE[account] = {
         "channels": channels, "streamer_status": streamer_status,
         "updated": updated, "first_seen": UPTIME[account],
         "platform": platform
     }
-
-    # Generate live "log" events for point gains (watching ticks, bonus claims, etc).
     for ch, pts in channels.items():
         prev_pts = prev_channels.get(ch)
-        if prev_pts is None:
-            continue  # first time seeing this channel for this account - nothing to compare
+        if prev_pts is None: continue
         delta = pts - prev_pts
-        if delta <= 0:
-            continue
-        if delta == 10:
-            label = f"watched the stream"
-        elif delta == 50:
-            label = f"claimed the 50 point box"
-        elif delta >= 100:
-            label = f"claimed a big bonus"
-        else:
-            label = f"earned points"
-        EVENT_LOG.append({
-            "ts": now_ts, "account": account, "streamer": ch,
-            "delta": delta, "total": pts, "label": label
-        })
+        if delta <= 0: continue
+        if delta == 10: label = "watched the stream"
+        elif delta == 50: label = "claimed the 50 point box"
+        elif delta >= 100: label = "claimed a big bonus"
+        else: label = "earned points"
+        EVENT_LOG.append({"ts": now_ts, "account": account, "streamer": ch, "delta": delta, "total": pts, "label": label})
         if len(EVENT_LOG) > MAX_EVENT_LOG:
             del EVENT_LOG[:len(EVENT_LOG) - MAX_EVENT_LOG]
-
     if account not in HISTORY: HISTORY[account] = []
     HISTORY[account].append({"ts": int(time.time()*1000), "channels": dict(channels)})
     if len(HISTORY[account]) > MAX_HISTORY:
         HISTORY[account] = HISTORY[account][-MAX_HISTORY:]
-
     if account not in PEAK: PEAK[account] = {}
     for ch, pts in channels.items():
         if pts > PEAK[account].get(ch, 0):
             PEAK[account][ch] = pts
-
     prev = _prev_status.get(account, {})
     for streamer, is_online in streamer_status.items():
         was_online = prev.get(streamer)
@@ -216,7 +352,6 @@ def update():
     _prev_status[account] = dict(streamer_status)
     return jsonify({"ok":True})
 
-# silence detection background thread
 def silence_detector():
     while True:
         time.sleep(30)
@@ -225,9 +360,8 @@ def silence_detector():
             age = now - info.get("updated", 0)
             if age > 180 and acc not in _silence_start:
                 _silence_start[acc] = info.get("updated", now)
-        
-silence_detector_thread = threading.Thread(target=silence_detector, daemon=True)
-silence_detector_thread.start()
+
+threading.Thread(target=silence_detector, daemon=True).start()
 
 @app.route("/api/points")
 def points(): return jsonify(POINTS_CACHE)
@@ -278,16 +412,12 @@ def streamer_log_single(streamer): return jsonify(STREAMER_LOG.get(streamer, [])
 
 @app.route("/api/events")
 def get_events():
-    """Live feed of point-gain events, most recent first.
-    Optional query params: since=<ts> (only events after this), account=<name>, limit=<n>."""
     since = request.args.get("since", type=int)
     account = request.args.get("account")
     limit = request.args.get("limit", type=int) or 200
     events = EVENT_LOG
-    if since:
-        events = [e for e in events if e["ts"] > since]
-    if account:
-        events = [e for e in events if e["account"] == account]
+    if since: events = [e for e in events if e["ts"] > since]
+    if account: events = [e for e in events if e["account"] == account]
     events = list(reversed(events))[:limit]
     return jsonify(events)
 
@@ -305,7 +435,6 @@ def crash_count(): return jsonify(CRASH_COUNT)
 @app.route("/api/silence-log/<account>")
 def silence_log(account): return jsonify(SILENCE_LOG.get(account, []))
 
-# NICKNAMES
 @app.route("/api/nicknames", methods=["GET"])
 def get_nicknames(): return jsonify(NICKNAMES)
 
@@ -315,14 +444,11 @@ def set_nickname():
     account  = data.get("account")
     nickname = data.get("nickname","").strip()
     if not account: return jsonify({"error":"missing account"}),400
-    if nickname:
-        NICKNAMES[account] = nickname
-    elif account in NICKNAMES:
-        del NICKNAMES[account]
+    if nickname: NICKNAMES[account] = nickname
+    elif account in NICKNAMES: del NICKNAMES[account]
     save_data()
     return jsonify({"ok":True})
 
-# PINNED
 @app.route("/api/pinned", methods=["GET"])
 def get_pinned(): return jsonify(list(PINNED))
 
@@ -335,7 +461,6 @@ def toggle_pin():
     save_data()
     return jsonify({"pinned": account in PINNED})
 
-# DELETE ACCOUNT
 @app.route("/api/delete/<account>", methods=["DELETE"])
 def delete_account(account):
     for store in [POINTS_CACHE, HISTORY, PEAK, UPTIME, CRASH_COUNT, SILENCE_LOG, NICKNAMES]:
@@ -349,7 +474,6 @@ def delete_account(account):
     save_daily()
     return jsonify({"ok":True})
 
-# ACTIVITY FEED (last 50 events across all streamers)
 @app.route("/api/activity")
 def activity():
     events = []
@@ -362,39 +486,23 @@ def activity():
 @app.route("/health")
 def health(): return "OK", 200
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
 # ============================================================
 # GITHUB BOT CONTROL
 # ============================================================
 
-# { account -> { "repo": "owner/repo", "token": "ghp_xxx", "file": "main.py" } }
-GITHUB_REPOS = {}
-
 @app.route("/api/github/repos", methods=["GET"])
 def get_github_repos():
-    # Return repos without exposing tokens
     safe = {}
     for acc, cfg in GITHUB_REPOS.items():
         safe[acc] = {"repo": cfg.get("repo",""), "file": cfg.get("file","main.py"), "linked": bool(cfg.get("token"))}
     return jsonify(safe)
 
-def normalize_repo(raw):
-    """Accepts 'owner/repo' or a full GitHub URL and returns 'owner/repo'."""
-    s = raw.strip()
-    s = re.sub(r"^(https?://)?(www\.)?github\.com/", "", s, flags=re.IGNORECASE)
-    s = re.sub(r"\.git$", "", s, flags=re.IGNORECASE)
-    s = s.strip("/")
-    return s
-
 @app.route("/api/github/link", methods=["POST"])
 def link_github_repo():
     data = request.json
     account = data.get("account")
-    repo    = data.get("repo")     # "owner/reponame" (or a full URL, which we normalize)
-    token   = data.get("token")    # GitHub personal access token
+    repo    = data.get("repo")
+    token   = data.get("token")
     file    = data.get("file", "main.py")
     if not all([account, repo, token]):
         return jsonify({"error": "missing fields"}), 400
@@ -413,9 +521,8 @@ def unlink_github_repo(account):
 
 @app.route("/api/github/bulk-link", methods=["POST"])
 def bulk_link_github_repos():
-    """Link multiple repos at once and save only once — avoids race conditions from auto-link."""
     data = request.json
-    entries = data.get("entries", [])  # [{account, repo, token, file}]
+    entries = data.get("entries", [])
     if not entries:
         return jsonify({"error": "no entries"}), 400
     results = {}
@@ -433,140 +540,8 @@ def bulk_link_github_repos():
             continue
         GITHUB_REPOS[account] = {"repo": repo, "token": token, "file": file}
         results[account] = "ok"
-    save_data()  # single save for all
+    save_data()
     return jsonify({"ok": True, "results": results})
-
-def gh_get_file(cfg):
-    """Fetch current file content + sha from GitHub."""
-    repo  = cfg["repo"]
-    token = cfg["token"]
-    file  = cfg.get("file", "main.py")
-    url   = f"https://api.github.com/repos/{repo}/contents/{file}"
-    try:
-        r = requests.get(url, headers={
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"
-        }, timeout=10)
-    except requests.exceptions.RequestException as e:
-        return None, None, f"Network error contacting GitHub: {e}"
-
-    try:
-        j = r.json()
-    except ValueError:
-        return None, None, f"GitHub returned a non-JSON response (status {r.status_code})"
-
-    if r.status_code != 200:
-        return None, None, j.get("message", f"GitHub error (status {r.status_code})")
-    if isinstance(j, list):
-        return None, None, f"'{file}' is a directory, not a file — set File to the exact file path (e.g. bot/main.py)"
-    if "content" not in j:
-        return None, None, f"Unexpected response from GitHub for '{file}'"
-    try:
-        content = base64.b64decode(j["content"]).decode("utf-8")
-    except Exception as e:
-        return None, None, f"Could not decode file content: {e}"
-    return content, j["sha"], None
-
-def gh_push_file(cfg, new_content, commit_message="Update bot config from dashboard"):
-    """Push new content to GitHub file. Creates the file if it doesn't exist yet."""
-    repo  = cfg["repo"]
-    token = cfg["token"]
-    file  = cfg.get("file", "main.py")
-    _, sha, err = gh_get_file(cfg)
-    _no_file_yet = ("not found", "is empty")
-    if err and not any(kw in err.lower() for kw in _no_file_yet):
-        # A real error (bad token, bad repo, etc.) - can't proceed.
-        return False, err
-    # sha stays None if the file doesn't exist yet; GitHub creates it in that case.
-    url = f"https://api.github.com/repos/{repo}/contents/{file}"
-    payload = {
-        "message": commit_message,
-        "content": base64.b64encode(new_content.encode("utf-8")).decode("utf-8"),
-    }
-    if sha:
-        payload["sha"] = sha
-    try:
-        r = requests.put(url, json=payload, headers={
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"
-        }, timeout=15)
-    except requests.exceptions.RequestException as e:
-        return False, f"Network error contacting GitHub: {e}"
-    try:
-        j = r.json()
-    except ValueError:
-        j = {}
-    if r.status_code in (200, 201):
-        return True, None
-    return False, j.get("message", f"GitHub push failed (status {r.status_code})")
-
-STATE_BACKUP_STATUS = {
-    "last_push_ok": None,      # True / False / None (never attempted)
-    "last_push_error": None,
-    "last_push_time": None,
-    "last_pull_ok": None,
-    "last_pull_error": None,
-    "last_pull_time": None,
-}
-
-def gh_state_pull():
-    """Fetch the persisted app-state JSON from the backup GitHub repo, if configured."""
-    if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
-        STATE_BACKUP_STATUS["last_pull_ok"] = False
-        STATE_BACKUP_STATUS["last_pull_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
-        STATE_BACKUP_STATUS["last_pull_time"] = datetime.now(timezone.utc).isoformat()
-        return None
-    cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
-    content, sha, err = gh_get_file(cfg)
-    STATE_BACKUP_STATUS["last_pull_time"] = datetime.now(timezone.utc).isoformat()
-    if err:
-        STATE_BACKUP_STATUS["last_pull_ok"] = False
-        STATE_BACKUP_STATUS["last_pull_error"] = err
-        print("state backup pull:", err)
-        return None
-    try:
-        parsed = json.loads(content)
-        STATE_BACKUP_STATUS["last_pull_ok"] = True
-        STATE_BACKUP_STATUS["last_pull_error"] = None
-        return parsed
-    except Exception as e:
-        STATE_BACKUP_STATUS["last_pull_ok"] = False
-        STATE_BACKUP_STATUS["last_pull_error"] = f"parse error: {e}"
-        print("state backup parse error:", e)
-        return None
-
-def gh_state_push(payload):
-    """Push the current app-state JSON to the backup GitHub repo, if configured."""
-    if not (STATE_GITHUB_REPO and STATE_GITHUB_TOKEN):
-        STATE_BACKUP_STATUS["last_push_ok"] = False
-        STATE_BACKUP_STATUS["last_push_error"] = "STATE_GITHUB_REPO / STATE_GITHUB_TOKEN not set"
-        STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
-        return
-
-    # Safety net: a container that hasn't finished loading yet (or a stale
-    # container lingering during a redeploy) has a blank in-memory state.
-    # If its periodic autosave fires in that window, it would otherwise
-    # silently overwrite a real backup with nothing. Refuse that specific
-    # case: pushing blank is only ever allowed if the current remote backup
-    # is *also* already blank (nothing real to lose).
-    is_blank = not payload.get("points_cache") and not payload.get("github_repos")
-    if is_blank:
-        existing = gh_state_pull()
-        if existing and (existing.get("points_cache") or existing.get("github_repos")):
-            msg = "skipped: refusing to overwrite a non-empty backup with a blank state"
-            STATE_BACKUP_STATUS["last_push_ok"] = False
-            STATE_BACKUP_STATUS["last_push_error"] = msg
-            STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
-            print("state backup push:", msg)
-            return
-
-    cfg = {"repo": STATE_GITHUB_REPO, "token": STATE_GITHUB_TOKEN, "file": STATE_GITHUB_FILE}
-    ok, err = gh_push_file(cfg, json.dumps(payload), "Auto-backup dashboard state")
-    STATE_BACKUP_STATUS["last_push_ok"] = ok
-    STATE_BACKUP_STATUS["last_push_error"] = err
-    STATE_BACKUP_STATUS["last_push_time"] = datetime.now(timezone.utc).isoformat()
-    if not ok:
-        print("state backup push:", err)
 
 @app.route("/api/debug/backup-status")
 def backup_status():
@@ -589,8 +564,6 @@ def get_code(account):
     if err:
         return jsonify({"error": err}), 500
     return jsonify({"content": content, "sha": sha})
-
-
 
 @app.route("/api/github/code/<account>", methods=["POST"])
 def push_code(account):
@@ -617,17 +590,14 @@ def mass_update():
     if not new_content:
         return jsonify({"error": "no content"}), 400
     targets = accounts if accounts else list(GITHUB_REPOS.keys())
-
     def push_one(acc):
         cfg = GITHUB_REPOS.get(acc)
-        if not cfg:
-            return acc, "not linked"
+        if not cfg: return acc, "not linked"
         try:
             ok, err = gh_push_file(cfg, new_content, message)
             return acc, "ok" if ok else (err or "unknown error")
         except Exception as e:
             return acc, "error: " + str(e)
-
     results = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
         for acc, status in executor.map(push_one, targets):
@@ -636,10 +606,6 @@ def mass_update():
 
 @app.route("/api/github/patch/<account>", methods=["POST"])
 def patch_code(account):
-    """
-    Patch specific settings in main.py without touching the rest of the code.
-    Supports: streamers list (max 3, priority order)
-    """
     cfg = GITHUB_REPOS.get(account)
     if not cfg:
         return jsonify({"error": "not linked"}), 404
@@ -647,10 +613,7 @@ def patch_code(account):
     content, sha, err = gh_get_file(cfg)
     if err:
         return jsonify({"error": err}), 500
-
     original = content
-
-    # Patch streamers list (max 3, in priority order)
     if "streamers" in data:
         streamers = [s for s in data["streamers"] if s][:3]
         streamer_lines = ",\n        ".join([f'Streamer("{s}")' for s in streamers])
@@ -660,96 +623,13 @@ def patch_code(account):
             f'twitch_miner.mine({new_block}',
             content, flags=re.DOTALL
         )
-
     if content == original:
         return jsonify({"ok": True, "note": "no changes detected"})
-
     ok, err = gh_push_file(cfg, content, data.get("message", "Patch settings from dashboard"))
     if not ok:
         return jsonify({"error": err}), 500
     return jsonify({"ok": True})
 
-# Patch load_data / save_data to include GITHUB_REPOS
-_orig_save = save_data
-def save_data():
-    payload = {
-        "points_cache": POINTS_CACHE,
-        "history": {a: list(s) for a,s in HISTORY.items()},
-        "peak": PEAK,
-        "streamer_log": STREAMER_LOG,
-        "uptime": UPTIME,
-        "crash_count": CRASH_COUNT,
-        "silence_log": SILENCE_LOG,
-        "nicknames": NICKNAMES,
-        "pinned": list(PINNED),
-        "event_log": EVENT_LOG[-MAX_EVENT_LOG:],
-        "github_repos": {
-            acc: {**cfg, "token": encrypt_token(cfg.get("token", ""))}
-            for acc, cfg in GITHUB_REPOS.items()
-        },
-    }
-    try:
-        with open(DATA_FILE, "w") as f:
-            json.dump(payload, f)
-    except Exception as e:
-        print("local save error:", e)
-    # Best-effort backup to GitHub so this survives a redeploy, not just a crash.
-    try:
-        gh_state_push(payload)
-    except Exception as e:
-        print("state backup push error:", e)
-
-_orig_load = load_data
-def load_data():
-    global POINTS_CACHE,HISTORY,PEAK,STREAMER_LOG,UPTIME,CRASH_COUNT,SILENCE_LOG,NICKNAMES,PINNED,GITHUB_REPOS,EVENT_LOG
-    p = None
-    source = None
-
-    # 1. Prefer the GitHub backup — it survives redeploys, local disk doesn't.
-    try:
-        p = gh_state_pull()
-        if p is not None:
-            source = "GitHub backup"
-    except Exception as e:
-        print("state backup pull error:", e)
-
-    # 2. Fall back to the local file (covers a same-container crash/restart,
-    #    or a first run before any GitHub backup exists yet).
-    if p is None and os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE) as f:
-                p = json.load(f)
-            source = "local disk"
-        except Exception as e:
-            print("local load error:", e)
-
-    if p:
-        try:
-            POINTS_CACHE = p.get("points_cache", {})
-            HISTORY      = {a: list(s) for a,s in p.get("history", {}).items()}
-            PEAK         = p.get("peak", {})
-            STREAMER_LOG = p.get("streamer_log", {})
-            UPTIME       = p.get("uptime", {})
-            CRASH_COUNT  = p.get("crash_count", {})
-            SILENCE_LOG  = p.get("silence_log", {})
-            NICKNAMES    = p.get("nicknames", {})
-            PINNED       = set(p.get("pinned", []))
-            EVENT_LOG    = p.get("event_log", [])
-            GITHUB_REPOS = {
-                acc: {**cfg, "token": decrypt_token(cfg.get("token", ""))}
-                for acc, cfg in p.get("github_repos", {}).items()
-            }
-            print(f"Loaded {len(POINTS_CACHE)} accounts from {source}")
-        except Exception as e:
-            print("load apply error:", e)
-    else:
-        print("No prior state found (GitHub backup or local) — starting fresh")
-
-    if os.path.exists(DAILY_FILE):
-        try:
-            with open(DAILY_FILE) as f:
-                DAILY.update(json.load(f))
-        except Exception as e:
-            print("daily load error:", e)
-
-load_data()
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
