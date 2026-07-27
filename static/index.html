@@ -1377,7 +1377,7 @@ async function runMassUpdate() {
         <span class="${status==='ok'?'bc-result-ok':'bc-result-err'}">${status==='ok'?'✓ pushed':status}</span>
       </div>`).join('');
     res.innerHTML = rows || '<div style="color:var(--muted);font-size:11px">No linked repos found</div>';
-  } catch(e) { bcProgressStop(iv, btn); res.innerHTML='<div class="bc-status err" style="display:block">Network error</div>'; }
+  } catch(e) { bcProgressStop(iv, btn); res.innerHTML='<div class="bc-status err" style="display:block">Request failed: ' + e.message + '</div>'; }
 }
 
 // ===================== INIT =====================
