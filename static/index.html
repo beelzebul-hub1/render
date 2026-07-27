@@ -315,6 +315,19 @@ body.compact .acc-name{font-size:11px}
 .bc-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--muted);font-size:12px;gap:8px}
 .bc-placeholder svg{width:32px;height:32px;opacity:0.2}
 
+/* GITHUB TOKEN BANNER */
+.gh-token-banner{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r2);padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.gh-token-label{font-size:11px;font-weight:700;color:var(--muted2);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.gh-token-label svg{width:14px;height:14px;opacity:0.7}
+.gh-token-input-wrap{display:flex;align-items:center;gap:6px;flex:1;min-width:220px}
+.gh-token-input{flex:1;padding:7px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:var(--r);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;transition:border-color 0.15s}
+.gh-token-input:focus{border-color:var(--purple3)}
+.gh-token-input::placeholder{color:var(--muted)}
+.gh-autolink-status{font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--r);white-space:nowrap}
+.gh-autolink-status.ok{background:var(--gdim);color:var(--green);border:1px solid rgba(16,185,129,0.3)}
+.gh-autolink-status.err{background:var(--rdim);color:var(--red);border:1px solid rgba(239,68,68,0.3)}
+.gh-autolink-status.loading{background:var(--s3);color:var(--muted2);border:1px solid var(--b2)}
+
 </style>
 </head>
 <body>
@@ -526,6 +539,20 @@ body.compact .acc-name{font-size:11px}
             <div class="btn btn-ghost" onclick="openMassUpdate()">⚡ Mass Update All</div>
           </div>
         </div>
+
+        <!-- GITHUB TOKEN BANNER -->
+        <div class="gh-token-banner">
+          <div class="gh-token-label">
+            <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clip-rule="evenodd"/></svg>
+            GitHub Token
+          </div>
+          <div class="gh-token-input-wrap">
+            <input class="gh-token-input" id="ghGlobalToken" type="password" placeholder="ghp_xxxxxxxxxxxx — enter once to auto-link all matching repos" oninput="ghTokenChanged()"/>
+            <div class="btn btn-purple" onclick="ghAutoLink()" id="ghAutoLinkBtn">⚡ Auto-Link</div>
+          </div>
+          <div id="ghAutoLinkStatus" style="display:none" class="gh-autolink-status"></div>
+        </div>
+
         <div class="bc-grid">
           <!-- Account list -->
           <div class="bc-sidebar">
@@ -1017,7 +1044,11 @@ async function loadBcRepos() {
 function renderBcAccList() {
   const el = document.getElementById('bcAccList');
   const search = (document.getElementById('bcAccSearch')?.value||'').toLowerCase();
-  const accs = Object.keys(pointsData).filter(a=>a.toLowerCase().includes(search));
+  // Only show Twitch accounts in Bot Control (Kick excluded)
+  const accs = Object.keys(pointsData).filter(a=>{
+    const platform = (pointsData[a]?.platform||'twitch').toLowerCase();
+    return platform !== 'kick' && a.toLowerCase().includes(search);
+  });
   if (!accs.length) { el.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--muted)">No accounts found</div>'; return; }
   el.innerHTML = accs.map(acc => {
     const linked = bcLinkedRepos[acc]?.linked;
@@ -1049,9 +1080,9 @@ function renderBcPanel() {
       <div class="bc-card-body">
         ${!linked ? `
           <div class="bc-field"><div class="bc-label">GitHub Repo (owner/reponame)</div>
-            <input class="bc-input mono" id="bcRepo" placeholder="e.g. yourname/twitch-bot-acc1"/></div>
+            <input class="bc-input mono" id="bcRepo" placeholder="e.g. yourname/${acc}" value="${ghGetSuggestedRepo(acc)}"/></div>
           <div class="bc-field"><div class="bc-label">Personal Access Token</div>
-            <input class="bc-input mono" id="bcToken" type="password" placeholder="ghp_xxxxxxxxxxxx"/></div>
+            <input class="bc-input mono" id="bcToken" type="password" placeholder="ghp_xxxxxxxxxxxx" value="${document.getElementById('ghGlobalToken')?.value||''}"/></div>
           <div class="bc-field"><div class="bc-label">File path in repo</div>
             <input class="bc-input mono" id="bcFile" placeholder="main.py" value="main.py"/></div>
           <div class="btn btn-purple" id="bcLinkBtn" onclick="bcLink('${acc}')">Link Repo</div>
@@ -1228,6 +1259,100 @@ async function bcPushCode(acc) {
     if (d.ok) { st.className='bc-status ok'; st.textContent='✓ Pushed! Render will auto-redeploy in ~30-90s.'; }
     else { st.className='bc-status err'; st.textContent=d.error||'Push failed'; }
   } catch(e) { bcProgressStop(iv, btn); st.className='bc-status err'; st.textContent='Network error'; }
+}
+
+// ===================== GITHUB AUTO-LINK =====================
+let ghCachedRepos = []; // list of {fullName, name} from GitHub API
+
+function ghTokenChanged() {
+  // Reset cache when token changes
+  ghCachedRepos = [];
+  const st = document.getElementById('ghAutoLinkStatus');
+  if (st) st.style.display = 'none';
+}
+
+function ghGetSuggestedRepo(acc) {
+  // If we fetched repos and one matches the account name, suggest it
+  const match = ghCachedRepos.find(r => r.name.toLowerCase() === acc.toLowerCase());
+  return match ? match.fullName : '';
+}
+
+async function ghAutoLink() {
+  const token = document.getElementById('ghGlobalToken')?.value.trim();
+  const st = document.getElementById('ghAutoLinkStatus');
+  const btn = document.getElementById('ghAutoLinkBtn');
+  if (!token) {
+    st.style.display = '';
+    st.className = 'gh-autolink-status err';
+    st.textContent = 'Enter a GitHub token first';
+    return;
+  }
+  st.style.display = '';
+  st.className = 'gh-autolink-status loading';
+  st.textContent = 'Fetching your GitHub repos…';
+  btn.classList.add('bc-disabled');
+
+  try {
+    // Fetch all repos for this token (up to 100)
+    const resp = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (!resp.ok) {
+      st.className = 'gh-autolink-status err';
+      st.textContent = resp.status === 401 ? 'Invalid token' : `GitHub error ${resp.status}`;
+      btn.classList.remove('bc-disabled');
+      return;
+    }
+    const repos = await resp.json();
+    ghCachedRepos = repos.map(r => ({ fullName: r.full_name, name: r.name }));
+
+    // Find Twitch accounts (non-kick) that match a repo name
+    const twitchAccs = Object.keys(pointsData).filter(a => {
+      const platform = (pointsData[a]?.platform || 'twitch').toLowerCase();
+      return platform !== 'kick';
+    });
+
+    const matches = [];
+    for (const acc of twitchAccs) {
+      if (bcLinkedRepos[acc]?.linked) continue; // already linked
+      const repo = ghCachedRepos.find(r => r.name.toLowerCase() === acc.toLowerCase());
+      if (repo) matches.push({ acc, fullName: repo.fullName });
+    }
+
+    if (!matches.length) {
+      st.className = 'gh-autolink-status err';
+      const linked = twitchAccs.filter(a => bcLinkedRepos[a]?.linked).length;
+      st.textContent = `No matching repos found (${ghCachedRepos.length} repos checked${linked ? ', ' + linked + ' already linked' : ''})`;
+      btn.classList.remove('bc-disabled');
+      return;
+    }
+
+    // Auto-link each match
+    let ok = 0, fail = 0;
+    st.textContent = `Linking ${matches.length} account${matches.length > 1 ? 's' : ''}…`;
+    for (const { acc, fullName } of matches) {
+      try {
+        const r = await fetch('/api/github/link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account: acc, repo: fullName, token, file: 'main.py' })
+        });
+        const d = await r.json();
+        if (d.ok) ok++; else fail++;
+      } catch(e) { fail++; }
+    }
+
+    await loadBcRepos();
+    renderBcAccList();
+    if (bcSelectedAcc) renderBcPanel();
+
+    st.className = 'gh-autolink-status ok';
+    st.textContent = `✓ Auto-linked ${ok} account${ok !== 1 ? 's' : ''}${fail ? ` · ${fail} failed` : ''}`;
+  } catch(e) {
+    st.className = 'gh-autolink-status err';
+    st.textContent = 'Error: ' + e.message;
+  }
+  btn.classList.remove('bc-disabled');
 }
 
 // MASS UPDATE
