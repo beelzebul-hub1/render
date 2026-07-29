@@ -703,18 +703,23 @@ function showToast(title, body, type='live'){
 if(Notification.permission==='default') Notification.requestPermission();
 
 // ===================== LOAD =====================
+// Delta cache: only re-fetch deltas every 5 minutes to save bandwidth
+let _deltaLastFetch = 0;
+const DELTA_TTL = 5 * 60 * 1000; // 5 minutes in ms
+
 async function load(){
   try{
-    const [pr,pkr,ur,sr,nr,pinr,cr]=await Promise.all([
-      fetch('/api/points'),fetch('/api/peak'),fetch('/api/uptime'),
-      fetch('/api/stats'),
-      fetch('/api/nicknames'),fetch('/api/pinned'),fetch('/api/crash-count')
-    ]);
-    pointsData=await pr.json(); peakData=await pkr.json();
-    uptimeData=await ur.json();
-    nicknames=await nr.json();
-    pinnedAccs=await pinr.json(); crashData=await cr.json();
-    const stats=await sr.json();
+    // Single combined request instead of 7 separate ones
+    const r = await fetch('/api/all');
+    const all = await r.json();
+
+    pointsData  = all.points;
+    peakData    = all.peak;
+    uptimeData  = all.uptime;
+    nicknames   = all.nicknames;
+    pinnedAccs  = all.pinned;
+    crashData   = all.crash;
+    const stats = all.stats;
 
     // header animated
     const tpEl=document.getElementById('hTotalPts');
@@ -729,10 +734,14 @@ async function load(){
     if(stats.silent_count>0){sb.style.display='';sb.textContent=stats.silent_count;}
     else sb.style.display='none';
 
-    // deltas in background
-    Object.keys(pointsData).forEach(acc=>{
-      fetch(`/api/delta/${acc}`).then(r=>r.json()).then(d=>{deltaCache[acc]=d;}).catch(()=>{});
-    });
+    // Deltas: only refresh every 5 minutes (not every poll)
+    const now = Date.now();
+    if(now - _deltaLastFetch > DELTA_TTL){
+      _deltaLastFetch = now;
+      Object.keys(pointsData).forEach(acc=>{
+        fetch(`/api/delta/${acc}`).then(r=>r.json()).then(d=>{deltaCache[acc]=d;}).catch(()=>{});
+      });
+    }
 
     if(logsLive){
       fetch('/api/events?limit=300').then(r=>r.json()).then(d=>{
@@ -1406,7 +1415,7 @@ async function runMassUpdate() {
 
 // ===================== INIT =====================
 load();
-setInterval(load,10000);
+setInterval(load,60000); // 60s poll — was 10s, saves ~80% bandwidth
 </script>
 </body>
 </html>
