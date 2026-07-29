@@ -9,8 +9,10 @@ from datetime import datetime, timezone
 
 import requests
 from flask import Flask, request, jsonify, send_from_directory
+from flask_compress import Compress
 
 app = Flask(__name__)
+Compress(app)
 
 DATA_FILE     = os.environ.get("DATA_FILE", "data.json")
 DAILY_FILE    = os.environ.get("DAILY_FILE", "daily.json")
@@ -641,3 +643,38 @@ def patch_code(account):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
+
+# ============================================================
+# COMBINED ENDPOINT — replaces 7 separate calls with 1
+# ============================================================
+
+@app.route("/api/all")
+def all_data():
+    now = int(time.time())
+    silent_accounts = []
+    total_points = 0
+    streamer_totals = {}
+    for acc, info in POINTS_CACHE.items():
+        age = now - info.get("updated", 0)
+        if age > 180:
+            silent_accounts.append(acc)
+        for ch, pts in info.get("channels", {}).items():
+            total_points += pts
+            streamer_totals[ch] = streamer_totals.get(ch, 0) + pts
+
+    return jsonify({
+        "points":    POINTS_CACHE,
+        "peak":      PEAK,
+        "uptime":    {acc: {"first_seen": fs, "uptime_seconds": now - fs} for acc, fs in UPTIME.items()},
+        "stats": {
+            "total_accounts":  len(POINTS_CACHE),
+            "silent_accounts": silent_accounts,
+            "silent_count":    len(silent_accounts),
+            "total_points":    total_points,
+            "streamer_totals": streamer_totals,
+        },
+        "nicknames": NICKNAMES,
+        "pinned":    list(PINNED),
+        "crash":     CRASH_COUNT,
+    })
